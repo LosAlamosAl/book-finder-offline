@@ -16,6 +16,10 @@ Parameters:
     AllowedPattern: ^[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+$
     Default: rekog-lambda
 
+  ResultsTableName:
+    Type: String
+    Default: bookfinder-results
+
   ImageBucketName:
     Type: String
     Default: losalamosal-udemy-images
@@ -32,6 +36,26 @@ Parameters:
     Default: lambda.zip
 
 Resources:
+  ResultsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Ref ResultsTableName
+      AttributeDefinitions:
+        - AttributeName: "Id"
+          AttributeType: "S"
+        - AttributeName: "Image"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "Id"
+          KeyType: "HASH"
+        - AttributeName: "Image"
+          KeyType: "RANGE"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
   # Must create a new bucket. CFN can "import" existing resources but it's a pain.
   # You must use the console or the CLI.
   # CDK seems to handle the problem of importing exting resources better.
@@ -94,6 +118,16 @@ Resources:
               - Effect: Allow
                 Action: rekognition:DetectText
                 Resource: "*"
+        - PolicyName: writeToDynamoDB
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:PutItem
+                Resource:
+                  - !GetAtt ResultsTable.Arn
 
   S3TriggerLambda:
     Type: AWS::Lambda::Function
@@ -101,6 +135,9 @@ Resources:
       FunctionName: !Ref LambdaFunctionName
       Role: !GetAtt S3TriggerLambdaRole.Arn
       Runtime: nodejs16.x
+      Environment:
+        Variables:
+          DB_TABLE_NAME: !Ref ResultsTableName
       Handler: index.handler
       Code:
         S3Bucket: !Ref ZipBucketName

@@ -4,7 +4,9 @@ const { Image, createCanvas } = require("canvas");
 
 const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { RekognitionClient, DetectTextCommand } = require("@aws-sdk/client-rekognition");
+const { DynamoDBClient, PutItemCommand } = require("@aws-sdk/client-dynamodb");
 
+const dynoClient = new DynamoDBClient();
 const s3client = new S3Client();
 const rekClient = new RekognitionClient();
 
@@ -72,11 +74,16 @@ exports.handler = async (event, context) => {
   // Given the upload bucket, UUID, and base, we can construct all the others as
   // shown above.
 
+  console.log(JSON.stringify(event));
+
   const uploadBucket = event.Records[0].s3.bucket.name;
-  const resultsBucket = uploadBucket.replace("originals", "results");
+  const resultsBucket = uploadBucket.replace("originals", "results"); // FIXME: make this a BUCKET!
   const uploadKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " "));
   const uploadBase = path.basename(uploadKey, ".png"); // strip prefix and extension
   const uploadPrefix = path.dirname(uploadKey);
+  const userUUID = uploadPrefix.split(path.sep)[1];
+  console.log(`event.Records[0].s3.object.key: ${event.Records[0].s3.object.key}`);
+  console.log(`userUUID: ${userUUID}`);
   console.log(`uploadBucket: ${uploadBucket}`);
   console.log(`resultsBucket: ${resultsBucket}`);
   console.log(`uploadKey: ${uploadKey}`);
@@ -167,31 +174,16 @@ async function writeAllFound(bucket, basename, found) {
   });
 
   // Initially we thought the UI would only need LINEs. But, since the bounding
-  // boxes on them are so "odd" we will probably keep then in the output JSON.
-  //found.TextDetections = found.TextDetections.filter((t) => t.Type == "LINE");
+  // boxes on them are so "odd" we will probably keep LINEs in the output JSON.
+  found.TextDetections = found.TextDetections.filter((t) => t.Type == "LINE");
 
   // FIXME: figure out where ParentId == undefined is coming from!?
   // TODO: write a simple test for this "bug"
-  let skipReducePrecision = false;
-  found.TextDetections.forEach((label) => {
-    if (label.Type == "WORD") {
-      if (label.ParentId == undefined) {
-        console.log(`${label.Id}: undefined ParentId found. Not reducing precision`);
-        skipReducePrecision = true;
-      }
-    }
+  // For some unknown reason the following will fail with ParentId === undefined
+  // on a LINE even though LINEs don't have a ParentId KV pair, Mystifying.
+  reduced = JSON.stringify(found, function (key, val) {
+    if (val !== undefined) return val.toFixed ? Number(val.toFixed(3)) : val;
   });
-
-  // FIXME: this is ugly--even if it works
-  let reduced;
-  if (skipReducePrecision) {
-    console.log("Not reducing precision. Make bug test based on this image");
-    reduced = JSON.stringify(found);
-  } else {
-    reduced = JSON.stringify(found, function (key, val) {
-      if (key != "ParentId") return val.toFixed ? Number(val.toFixed(3)) : val;
-    });
-  }
 
   let et = performance.now() - start;
   console.log(`writeAllFound: reducing precision and entries took ${et / 1000} sec`);
@@ -215,10 +207,37 @@ async function writeAllFound(bucket, basename, found) {
     const data = await s3client.send(command);
     let et = performance.now() - start;
     console.log(`writeAllFound: S3 write took ${et / 1000} sec`);
-    return;
+    //return;
   } catch (err) {
-    console.log(`writeAllFound failed: ${JSON.stringify(error)}`);
+    console.log(`writeAllFound failed: ${JSON.stringify(err)}`);
     throw new Error(JSON.stringify(err));
+  }
+
+  const putParams = {
+    TableName: process.env.DB_TABLE_NAME,
+    Item: {
+      Id: { S: bucket },
+      Image: { S: basename },
+      RekogResults: { S: quoteReduced }
+    }
+  };
+
+  const putItemCommand = new PutItemCommand(putParams);
+
+  let ret = {
+    isBase64Encoded: false,
+    statusCode: 200,
+    headers: { "Access-Control-Allow-Origin": "*" },
+    body: process.env.DB_TABLE_NAME
+  };
+
+  try {
+    const data = await dynoClient.send(putItemCommand);
+    ret.body = data;
+    return ret;
+  } catch (error) {
+    console.log(`putItemCommand failed: ${JSON.stringify(error)}`);
+    throw new Error(error);
   }
 }
 
