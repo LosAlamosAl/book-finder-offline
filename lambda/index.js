@@ -76,9 +76,11 @@ exports.handler = async (event, context) => {
 
   console.log(JSON.stringify(event));
 
+  // TODO: refactor all valuse to make sense (names vs. objects)
   const uploadBucket = event.Records[0].s3.bucket.name;
   const resultsBucket = uploadBucket.replace("originals", "results"); // FIXME: make this a BUCKET!
   const uploadKey = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, " "));
+  const uploadImage = path.basename(uploadKey); // full image name with extension
   const uploadBase = path.basename(uploadKey, ".png"); // strip prefix and extension
   const uploadPrefix = path.dirname(uploadKey);
   const userUUID = uploadPrefix.split(path.sep)[1];
@@ -88,9 +90,10 @@ exports.handler = async (event, context) => {
   console.log(`resultsBucket: ${resultsBucket}`);
   console.log(`uploadKey: ${uploadKey}`);
   console.log(`uploadBase: ${uploadBase}`);
+  console.log(`uploadImage: ${uploadImage}`);
   console.log(`uploadPrefix: ${uploadPrefix}`);
 
-  let originalImage = await loadOriginalImage(uploadBucket, uploadKey);
+  let originalImage = await loadOriginalImage(uploadBucket, uploadKey); // actual image; not name of image
   console.log(`originalImage    w: ${originalImage.width}  h: ${originalImage.height}`);
 
   // This is the main loop. Rekognition will likely NOT find all the text in the image
@@ -122,7 +125,7 @@ exports.handler = async (event, context) => {
   }
 
   await saveThumbnailImage(originalImage, uploadBucket, uploadBase); // so client doesn't have to resize
-  await writeAllFound(uploadBucket, uploadBase, allFound); // JSON file of all detections
+  await writeAllFound(uploadBucket, uploadBase, allFound, userUUID, uploadImage); // JSON file of all detections
 
   return `findTextInBookImage finished: ${uploadBucket}/${uploadKey}`;
 };
@@ -157,7 +160,7 @@ async function rekogText(bucket, key) {
 // Write JSON version of ALL text found in image
 // Written data is result of merging data from all passes
 // into the single object.
-async function writeAllFound(bucket, basename, found) {
+async function writeAllFound(bucket, basename, found, uuid, imageName) {
   // Make returned JSON smaller by reducing precision of the
   // X and Y values of the text's bounding polygon and deleting
   // all occurrences of WORDs found (client and server only need
@@ -216,8 +219,8 @@ async function writeAllFound(bucket, basename, found) {
   const putParams = {
     TableName: process.env.DB_TABLE_NAME,
     Item: {
-      Id: { S: bucket },
-      Image: { S: basename },
+      Id: { S: uuid },
+      Image: { S: imageName },
       RekogResults: { S: quoteReduced }
     }
   };
