@@ -11,6 +11,10 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Offline portion of Book Finder App
 
 Parameters:
+  ApiGatewayName:
+    Type: String
+    Default: bookfinder-api-gateway
+
   LambdaFunctionName:
     Type: String
     AllowedPattern: ^[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+$
@@ -36,6 +40,113 @@ Parameters:
     Default: lambda.zip
 
 Resources:
+  # ---------------------------------------------------------------- API GATEWAY
+  BookFinderGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Ref ApiGatewayName
+
+  BookFinderUsersResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt BookFinderGateway.RootResourceId
+      PathPart: "users"
+      RestApiId: !Ref BookFinderGateway
+
+  BookFinderUsersSignupResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref BookFinderUsersResource
+      PathPart: "signup"
+      RestApiId: !Ref BookFinderGateway
+
+  # Don't understand why HttpMethod and IntegrationHttpMethod are specified?
+  # Why not just one? What happens if they differ?
+  BookFinderUsersSignupPOST:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations
+          - lambdaArn: !GetAtt BookFinderUsersSignupLambda.Arn
+      OperationName: "users/signup"
+      ResourceId: !Ref BookFinderUsersSignupResource
+      RestApiId: !Ref BookFinderGateway
+
+  BookFinderDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - BookFinderUsersSignupPOST
+    Properties:
+      RestApiId: !Ref BookFinderGateway
+
+  # Enable logging of all HTTP requests
+  BookFinderStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref BookFinderDeployment
+      #MethodSettings:
+      #  - HttpMethod: "*"
+      #    LoggingLevel: INFO
+      #    ResourcePath: /*
+      #    DataTraceEnabled: true
+      RestApiId: !Ref BookFinderGateway
+      StageName: dev
+
+  BookFinderUsersSignupLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+      # So lambda can write logs
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+
+  BookFinderUsersSignupLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: book-finder-users-signup
+      Role: !GetAtt BookFinderUsersSignupLambdaRole.Arn
+      Runtime: nodejs16.x
+      Handler: apigw.handler
+      Code:
+        S3Bucket: !Ref ZipBucketName
+        S3Key: !Ref ZipS3Key
+        S3ObjectVersion: !Ref ZipVersionId
+      MemorySize: 128
+      Timeout: 30
+
+  # Thanks https://ldoughty.com/2020/01/aws-http-api-gateway-cloudformation-setup/
+  BookFinderUserSignupLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Join [/, ["/aws/lambda", !Ref BookFinderUsersSignupLambda]]
+      RetentionInDays: 3
+
+  BookFinderGatewayInvoke:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt BookFinderUsersSignupLambda.Arn
+      Principal: apigateway.amazonaws.com
+      # Specification of ARN allows only that endpoint to execute lambda? Check this out.
+      # note: if route *not* at API Gateway root, `SourceArn` would take the form of:
+      #               arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${apiGateway}/${apiGatewayStageName}/${apiGatewayHTTPMethod}/PATH_PART
+      #SourceArn: !Sub arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${BookFinderGateway}/${BookFinderStage}/${BookFinderUsersSignupPOST}/
+
+  # ---------------------------------------------------------------- DYNAMODB
   ResultsTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Delete
@@ -138,7 +249,7 @@ Resources:
       Environment:
         Variables:
           DB_TABLE_NAME: !Ref ResultsTableName
-      Handler: index.handler
+      Handler: rekog.handler
       Code:
         S3Bucket: !Ref ZipBucketName
         S3Key: !Ref ZipS3Key

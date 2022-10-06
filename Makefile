@@ -4,7 +4,8 @@
 
 stack_name = build-book-db
 cfn_file = build-book-db.yml
-lambda_file_name = index.js
+rekog_lambda = rekog.js
+apigw_lambda = apigw.js
 
 # Bucket must exist and have versioning enabled
 lambda_bucket = losalamosal-udemy-uploads
@@ -27,7 +28,10 @@ deploy: lambda.zip
 		--parameter-overrides ZipVersionId=$$zip_version                          \
 		--capabilities CAPABILITY_NAMED_IAM
 
-lambda.zip: lambda/$(lambda_file_name)
+# Need to use zip like this to avoid leaving deleted file in the ZIP archive
+# https://superuser.com/a/351020
+# zip -FSr -q ../lambda.zip $(rekog_lambda) $(apigw_lambda) node_modules
+lambda.zip: lambda/$(rekog_lambda) lambda/$(apigw_lambda)
 	@echo "Lambda modified. Zipping and uploading new version..."
-	@cd lambda; zip -r -q ../lambda.zip *
+	@cd lambda; zip -FS -r -q ../lambda.zip $(rekog_lambda) $(apigw_lambda) node_modules
 	@aws s3 cp lambda.zip s3://$(lambda_bucket)
