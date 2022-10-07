@@ -40,11 +40,13 @@ Parameters:
     Default: lambda.zip
 
 Resources:
-  # ---------------------------------------------------------------- API GATEWAY
+  # ------------------------------------------ API GATEWAY
   BookFinderGateway:
     Type: AWS::ApiGateway::RestApi
     Properties:
       Name: !Ref ApiGatewayName
+
+  # ------------------------------------------ API GATEWAY (resources)
 
   BookFinderUsersResource:
     Type: AWS::ApiGateway::Resource
@@ -59,6 +61,8 @@ Resources:
       ParentId: !Ref BookFinderUsersResource
       PathPart: "signup"
       RestApiId: !Ref BookFinderGateway
+
+  # ------------------------------------------ API GATEWAY (methods)
 
   # Don't understand why HttpMethod and IntegrationHttpMethod are specified?
   # Why not just one? What happens if they differ?
@@ -78,8 +82,40 @@ Resources:
       ResourceId: !Ref BookFinderUsersSignupResource
       RestApiId: !Ref BookFinderGateway
 
+  BookFinderUsersSignupOPTIONS:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      ResourceId: !Ref BookFinderUsersSignupResource
+      RestApiId: !Ref BookFinderGateway
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: "Empty"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: false
+            method.response.header.Access-Control-Allow-Methods: false
+            method.response.header.Access-Control-Allow-Origin: false
+
+  # ------------------------------------------ API GATEWAY (deployment/stage)
+
   BookFinderDeployment:
     Type: AWS::ApiGateway::Deployment
+    # An entry for each method
     DependsOn:
       - BookFinderUsersSignupPOST
     Properties:
@@ -97,6 +133,8 @@ Resources:
       #    DataTraceEnabled: true
       RestApiId: !Ref BookFinderGateway
       StageName: dev
+
+  # ------------------------------------------ API GATEWAY (lambdas/roles/logs/invoke)
 
   BookFinderUsersSignupLambdaRole:
     Type: AWS::IAM::Role
