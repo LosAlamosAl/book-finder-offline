@@ -78,7 +78,7 @@ Resources:
         Uri: !Sub
           - arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations
           - lambdaArn: !GetAtt BookFinderUsersSignupLambda.Arn
-      OperationName: "users/signup"
+      OperationName: "user signup"
       ResourceId: !Ref BookFinderUsersSignupResource
       RestApiId: !Ref BookFinderGateway
 
@@ -314,3 +314,7 @@ Resources:
     Properties:
       LogGroupName: !Join [/, ["/aws/lambda", !Ref S3TriggerLambda]]
       RetentionInDays: 3
+
+Outputs:
+  BookFinderGatewayInvokeURL:
+    Value: !Sub https://${BookFinderGateway}.execute-api.${AWS::Region}.amazonaws.com/${BookFinderStage}
