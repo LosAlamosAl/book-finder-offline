@@ -45,6 +45,9 @@ Resources:
     Type: AWS::ApiGateway::RestApi
     Properties:
       Name: !Ref ApiGatewayName
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
 
   # ------------------------------------------ API GATEWAY (resources)
 
@@ -111,13 +114,14 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: false
             method.response.header.Access-Control-Allow-Origin: false
 
-  # ------------------------------------------ API GATEWAY (deployment/stage)
+  # ------------------------------------------ API GATEWAY (deployment/stage/logging)
 
   BookFinderDeployment:
     Type: AWS::ApiGateway::Deployment
     # An entry for each method
     DependsOn:
       - BookFinderUsersSignupPOST
+      - BookFinderGatewayLoggingRole
     Properties:
       RestApiId: !Ref BookFinderGateway
 
@@ -126,13 +130,34 @@ Resources:
     Type: AWS::ApiGateway::Stage
     Properties:
       DeploymentId: !Ref BookFinderDeployment
-      #MethodSettings:
-      #  - HttpMethod: "*"
-      #    LoggingLevel: INFO
-      #    ResourcePath: /*
-      #    DataTraceEnabled: true
+      MethodSettings:
+        - HttpMethod: "*"
+          LoggingLevel: INFO
+          ResourcePath: /*
+          DataTraceEnabled: true
       RestApiId: !Ref BookFinderGateway
       StageName: dev
+
+  # https://gist.github.com/villasv/4f5b62a772abe2c06525356f80299048
+  BookFinderGatewayAccountConfig:
+    Type: "AWS::ApiGateway::Account"
+    Properties:
+      CloudWatchRoleArn: !GetAtt "BookFinderGatewayLoggingRole.Arn"
+
+  BookFinderGatewayLoggingRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "apigateway.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
 
   # ------------------------------------------ API GATEWAY (lambdas/roles/logs/invoke)
 
