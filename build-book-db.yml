@@ -130,6 +130,15 @@ Resources:
     Type: AWS::ApiGateway::Stage
     Properties:
       DeploymentId: !Ref BookFinderDeployment
+      # https://kb.novaordis.com/index.php/Amazon_API_Gateway_Deployment_with_CloudFormation#Access_Logging_Configuration
+      AccessLogSetting:
+        DestinationArn: !GetAtt BookFinderGatewayAccessLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId", "ip": "$context.identity.sourceIp",
+          "caller":"$context.identity.caller",
+          "user":"$context.identity.user","requestTime":"$context.requestTime",
+          "eventType":"$context.eventType","routeKey":"$context.routeKey",
+          "status":"$context.status","connectionId":"$context.connectionId"}
       MethodSettings:
         - HttpMethod: "*"
           LoggingLevel: INFO
@@ -158,6 +167,14 @@ Resources:
       Path: "/"
       ManagedPolicyArns:
         - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+
+  BookFinderGatewayAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Join [/, ["/aws/apigateway", !Ref BookFinderGateway]]
+      RetentionInDays: 3
 
   # ------------------------------------------ API GATEWAY (lambdas/roles/logs/invoke)
 
