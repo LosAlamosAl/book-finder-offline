@@ -1,4 +1,5 @@
 exports.handler = async (event, context) => {
+  console.log("If we made it here, we're authorized");
   console.log(JSON.stringify(event));
   console.log(JSON.stringify(context));
   console.log(JSON.stringify(process.env));

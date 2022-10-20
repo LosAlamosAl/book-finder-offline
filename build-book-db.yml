@@ -15,6 +15,11 @@ Parameters:
     Type: String
     Default: bookfinder-api-gateway
 
+  # Created in another stack--passed in.
+  CognitoUserPoolArn:
+    Type: String
+    Default: "arn:aws:cognito-idp:us-west-2:136545519964:userpool/us-west-2_uxiUCc2FP"
+
   LambdaFunctionName:
     Type: String
     AllowedPattern: ^[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+$
@@ -28,6 +33,7 @@ Parameters:
     Type: String
     Default: losalamosal-udemy-images
 
+  # Created in another stack--passed in.
   ZipBucketName:
     Type: String
     Default: losalamosal-udemy-uploads
@@ -65,6 +71,17 @@ Resources:
       PathPart: "signup"
       RestApiId: !Ref BookFinderGateway
 
+  # ------------------------------------------ API GATEWAY (authorizer)
+
+  BookFinderApiAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: "cognito-authorizer"
+      ProviderARNs:
+        - !Ref CognitoUserPoolArn
+      RestApiId: !Ref BookFinderGateway
+      Type: COGNITO_USER_POOLS
+
   # ------------------------------------------ API GATEWAY (methods)
 
   # Don't understand why HttpMethod and IntegrationHttpMethod are specified?
@@ -73,7 +90,8 @@ Resources:
     Type: AWS::ApiGateway::Method
     Properties:
       ApiKeyRequired: false
-      AuthorizationType: NONE
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId: !Ref BookFinderApiAuthorizer
       HttpMethod: POST
       Integration:
         Type: AWS_PROXY
@@ -122,6 +140,7 @@ Resources:
     DependsOn:
       - BookFinderUsersSignupPOST
       - BookFinderGatewayLoggingRole
+      - BookFinderUsersSignupPOST
     Properties:
       RestApiId: !Ref BookFinderGateway
 
