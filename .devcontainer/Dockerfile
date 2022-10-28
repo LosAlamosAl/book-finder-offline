@@ -18,6 +18,7 @@ RUN apt-get update \
         less                                      \
         httpie                                    \
         curl                                      \
+        patch                                     \
         git-all                                   \
         jq                                        \
         htop                                      \
