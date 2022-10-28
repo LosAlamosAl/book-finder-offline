@@ -86,3 +86,12 @@ means small amount of data. Could just
 load it into lambda as part of `node_modules` or put it in a lambda layer. Found a post
 on the web where a guy uses lambda layers to store small hash tables for rapid search.
 This is the same approach.
+
+### Force a deployment
+
+CFN will not do another deployomet is one already exists. [This solution](https://stackoverflow.com/a/60558544) uses the CLI to force a new deploy. I don't **think** it results in drift.
+
+```sh
+aws apigateway create-deployment --rest-api-id REST_API_ID \
+  --stage-name dev --description 'Deployed from CLI; drift warning'
+```
