@@ -2,13 +2,13 @@
 #  Read would be used to dump status of stack.
 .DEFAULT_GOAL := deploy
 
-stack_name = build-book-db
+stack_name = losalamosal--bookfinder-offline
 cfn_file = build-book-db.yml
 rekog_lambda = rekog.js
 apigw_lambda = apigw.js
 
 # Bucket must exist and have versioning enabled
-lambda_bucket = losalamosal-udemy-uploads
+lambda_bucket = losalamosal--lambda-uploads
 
 # https://stackoverflow.com/a/20714468/227441
 # https://stackoverflow.com/a/69710710/227441

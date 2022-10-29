@@ -95,3 +95,5 @@ CFN will not do another deployomet is one already exists. [This solution](https:
 aws apigateway create-deployment --rest-api-id REST_API_ID \
   --stage-name dev --description 'Deployed from CLI; drift warning'
 ```
+
+Remember to **delete** `lambda.zip` when you delete the stack.

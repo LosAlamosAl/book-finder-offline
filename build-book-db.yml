@@ -13,9 +13,9 @@ Description: Offline portion of Book Finder App
 Parameters:
   ApiGatewayName:
     Type: String
-    Default: bookfinder-api-gateway
+    Default: losalamosal--bookfinder-gateway
 
-  # Created in another stack--passed in.
+  # Created in another stack--passed in (eventually)
   CognitoUserPoolArn:
     Type: String
     Default: "arn:aws:cognito-idp:us-west-2:136545519964:userpool/us-west-2_uxiUCc2FP"
@@ -27,16 +27,20 @@ Parameters:
 
   ResultsTableName:
     Type: String
-    Default: bookfinder-results
+    Default: losalamosal--bookfinder-table
 
   ImageBucketName:
     Type: String
-    Default: losalamosal-udemy-images
+    Default: losalamosal--bookfinder-uploads
 
-  # Created in another stack--passed in.
+  ResultsBucketName:
+    Type: String
+    Default: losalamosal--bookfinder-results
+
+  # Created in another stack--passed in (eventually)
   ZipBucketName:
     Type: String
-    Default: losalamosal-udemy-uploads
+    Default: losalamosal--lambda-uploads
 
   ZipVersionId:
     Type: String
@@ -77,6 +81,7 @@ Resources:
     Type: AWS::ApiGateway::Authorizer
     Properties:
       Name: "cognito-authorizer"
+      IdentitySource: method.request.header.Auth
       ProviderARNs:
         - !Ref CognitoUserPoolArn
       RestApiId: !Ref BookFinderGateway
@@ -266,6 +271,12 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
 
+  S3ResultsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Ref ResultsBucketName
+
   # Must create a new bucket. CFN can "import" existing resources but it's a pain.
   # You must use the console or the CLI.
   # CDK seems to handle the problem of importing exting resources better.
@@ -348,6 +359,8 @@ Resources:
       Environment:
         Variables:
           DB_TABLE_NAME: !Ref ResultsTableName
+          RESULTS_BUCKET_NAME: !Ref ResultsBucketName
+          UPLOADS_BUCKET_NAME: !Ref ImageBucketName
       Handler: rekog.handler
       Code:
         S3Bucket: !Ref ZipBucketName

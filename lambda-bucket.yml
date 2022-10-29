@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS Play (versioning enabled bucket)
+
+Parameters:
+  VersionedBucketName:
+    Type: String
+    Default: losalamosal--lambda-uploads
+
+Resources:
+  VersionedBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Ref VersionedBucketName
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            Id: "lambda version expiration rule"
+            ExpirationInDays: 1
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+              NewerNoncurrentVersions: 3
+
+Outputs:
+  BucketName:
+    Value: !Ref VersionedBucketName

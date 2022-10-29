@@ -88,6 +88,9 @@ exports.handler = async (event, context) => {
   console.log(`userUUID: ${userUUID}`);
   console.log(`uploadBucket: ${uploadBucket}`);
   console.log(`resultsBucket: ${resultsBucket}`);
+  console.log(`RESULTS_BUCKET_NAME: ${process.env.RESULTS_BUCKET_NAME}`);
+  console.log(`UPLOADS_BUCKET_NAME: ${process.env.UPLOADS_BUCKET_NAME}`);
+  console.log(`DB_TABLE_NAME: ${process.env.DB_TABLE_NAME}`);
   console.log(`uploadKey: ${uploadKey}`);
   console.log(`uploadBase: ${uploadBase}`);
   console.log(`uploadImage: ${uploadImage}`);
