@@ -17,6 +17,10 @@ const rekClient = new RekognitionClient();
 // why Rekognition isn't returning zero at some point.
 const MAX_PASSES = 15;
 
+// Quick and dirty global to collect elapsed run times. Used with setElapsedTime().
+// Could be more general class, but it's quick and dirty.
+const elapsedTimers = {};
+
 exports.handler = async (event, context) => {
   // The book-finder application uses S3 bucket and key conventions for
   // locations of uploaded images and other data produced by this offline
@@ -88,7 +92,6 @@ exports.handler = async (event, context) => {
     console.log(`rekogText: ${found.TextDetections.length} found on pass ${i}`);
     if (found.TextDetections.length == 0) break; // no more text to find
     allFound = mergeFound(allFound, found); // merge this pass results with previous passes
-    // TODO: save only one annotated image after loop?
     await saveAnnotatedImage(rekogImage, resultsBucket, annotatedImageKey, found); // for debugging
     // Write the whiteout image and return a copy for the next pass -- written image is for debugging
     rekogImage = await saveWhiteoutImage(rekogImage, resultsBucket, whiteoutImageKey, found);
@@ -106,6 +109,7 @@ exports.handler = async (event, context) => {
   await saveThumbnailImage(originalImage, resultsBucket, thumbnailImageKey); // so client doesn't have to resize
   await writeAllFound(resultsBucket, resultsJsonKey, allFound, userUUID, uploadImage); // JSON file of all detections
 
+  console.log(elapsedTimers);
   return `findTextInBookImage finished: ${uploadBucket}/${uploadKey}`;
 };
 
@@ -127,8 +131,7 @@ async function rekogText(bucket, key) {
   try {
     let start = performance.now();
     const data = await rekClient.send(command);
-    let et = performance.now() - start;
-    console.log(`text detection took ${et / 1000} sec`);
+    setElapsedTime("Rekog text detection", performance.now() - start);
     return data;
   } catch (error) {
     console.log(`rekogText failed: ${JSON.stringify(error)}`);
@@ -168,8 +171,7 @@ async function writeAllFound(bucket, key, found, uuid, imageName) {
     if (val !== undefined) return val.toFixed ? Number(val.toFixed(3)) : val;
   });
 
-  let et = performance.now() - start;
-  console.log(`writeAllFound: reducing precision and entries took ${et / 1000} sec`);
+  setElapsedTime("writeAllFound: elide/precision", performance.now() - start);
 
   // This extra step is needed to quote (e.g. \") all internal double quotes if we're
   // going to put this into DynamoDB. It's the client's responsibility to unquote
@@ -188,9 +190,7 @@ async function writeAllFound(bucket, key, found, uuid, imageName) {
   try {
     let start = performance.now();
     const data = await s3client.send(command);
-    let et = performance.now() - start;
-    console.log(`writeAllFound: S3 write took ${et / 1000} sec`);
-    //return;
+    setElapsedTime("writeAllFound: S3 write", performance.now() - start);
   } catch (err) {
     console.log(`writeAllFound failed: ${JSON.stringify(err)}`);
     throw new Error(JSON.stringify(err));
@@ -256,8 +256,8 @@ async function loadOriginalImage(bucket, key) {
     let start = performance.now();
     const data = await s3client.send(command);
     const body = await streamToBuffer(data.Body);
-    let et = performance.now() - start;
-    console.log(`loadOriginalImage ${et / 1000} sec`);
+    setElapsedTime("load original image", performance.now() - start);
+
     original.src = body;
     return original;
   } catch (error) {
@@ -275,16 +275,14 @@ async function saveThumbnailImage(image, bucket, key) {
   const ctx = canvas.getContext("2d");
   let start = performance.now();
   ctx.drawImage(image, 0, 0, w / 4, h / 4);
-  let et = performance.now() - start;
-  console.log(`saveThumbnailImage: drawImage took ${et / 1000} sec`);
+  setElapsedTime("saveThumbnailImage: drawImage", performance.now() - start);
 
   start = performance.now();
   const buffer = canvas.toBuffer("image/png", {
     compressionLevel: 1,
     filters: canvas.PNG_ALL_FILTERS
   });
-  et = performance.now() - start;
-  console.log(`saveThumbnailImage: toBuffer took ${et / 1000} sec`);
+  setElapsedTime("saveThumbnailImage: toBuffer", performance.now() - start);
   const params = {
     Bucket: bucket,
     Key: key,
@@ -295,8 +293,7 @@ async function saveThumbnailImage(image, bucket, key) {
   try {
     let start = performance.now();
     const data = await s3client.send(command);
-    let et = performance.now() - start;
-    console.log(`put S3 thumbnail image took ${et / 1000} sec`);
+    setElapsedTime("saveThumbnailImage: S3 write", performance.now() - start);
     return;
   } catch (err) {
     console.log(`saveThumbnailImage failed: ${JSON.stringify(error)}`);
@@ -314,8 +311,7 @@ async function saveAnnotatedImage(image, bucket, key, found) {
   const ctx = canvas.getContext("2d");
   let start = performance.now();
   ctx.drawImage(image, 0, 0);
-  let et = performance.now() - start;
-  console.log(`saveAnnotatedImage: drawImage took ${et / 1000} sec`);
+  setElapsedTime("saveAnnotatedImage: drawImage", performance.now() - start);
 
   // FIXME: how do unquoted vals (e.g. poly.Y) work on a JSON object?
   found.TextDetections.forEach((label) => {
@@ -357,8 +353,7 @@ async function saveAnnotatedImage(image, bucket, key, found) {
     compressionLevel: 1,
     filters: canvas.PNG_ALL_FILTERS
   });
-  et = performance.now() - start;
-  console.log(`saveAnnotatedImage: toBuffer took ${et / 1000} sec`);
+  setElapsedTime("saveAnnotatedImage: toBuffer", performance.now() - start);
 
   const params = {
     Bucket: bucket,
@@ -370,8 +365,7 @@ async function saveAnnotatedImage(image, bucket, key, found) {
   try {
     let start = performance.now();
     const data = await s3client.send(command);
-    let et = performance.now() - start;
-    console.log(`saveAnnotatedImage : S3 write took ${et / 1000} sec`);
+    setElapsedTime("saveAnnotatedImage: S3 write", performance.now() - start);
     return;
   } catch (err) {
     console.log(`saveAnnotatedImage failed: ${JSON.stringify(err)}`);
@@ -393,8 +387,7 @@ async function saveWhiteoutImage(image, bucket, key, found) {
   const ctx = canvas.getContext("2d");
   let start = performance.now();
   ctx.drawImage(image, 0, 0);
-  let et = performance.now() - start;
-  console.log(`saveWhiteoutImage: drawImage took ${et / 1000} sec`);
+  setElapsedTime("saveWhiteoutImage: drawImage", performance.now() - start);
 
   found.TextDetections.forEach((label) => {
     // Draw an opaque white box over all WORDs found.
@@ -419,15 +412,13 @@ async function saveWhiteoutImage(image, bucket, key, found) {
     compressionLevel: 1,
     filters: canvas.PNG_ALL_FILTERS
   });
-  et = performance.now() - start;
-  console.log(`saveWhiteoutImage: toBuffer took ${et / 1000} sec`);
+  setElapsedTime("saveWhiteoutImage: toBuffer", performance.now() - start);
 
   const params = {
     Bucket: bucket,
     Key: key,
     Body: buffer
   };
-  console.log(`params.Key: ${params.Key}`);
   const command = new PutObjectCommand(params);
 
   const nextPassImage = new Image();
@@ -436,11 +427,15 @@ async function saveWhiteoutImage(image, bucket, key, found) {
   try {
     let start = performance.now();
     const data = await s3client.send(command);
-    let et = performance.now() - start;
-    console.log(`saveWhiteoutImage: S3 write took ${et / 1000} sec`);
-    return nextPassImage;
+    setElapsedTime("saveWhiteoutImage: S3 write", performance.now() - start);
+    return nextPassImage; // Rekog uses the whiteout image so as not to re-detect text
   } catch (err) {
     console.log(`saveWhiteoutImage failed: ${JSON.stringify(err)}`);
     throw new Error(JSON.stringify(err));
   }
+}
+
+function setElapsedTime(key, et) {
+  if (!(key in elapsedTimers)) elapsedTimers[key] = [];
+  elapsedTimers[key].push(et / 1000);
 }
