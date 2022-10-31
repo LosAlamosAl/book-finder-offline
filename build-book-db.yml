@@ -294,8 +294,8 @@ Resources:
             Filter:
               S3Key:
                 Rules:
-                  - Name: prefix
-                    Value: originals/
+                  #                  - Name: prefix
+                  #                    Value: */
                   - Name: suffix
                     Value: .png
 
@@ -322,7 +322,15 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
       Policies:
-        - PolicyName: getAndDeleteObjects
+        - PolicyName: getObjects
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub "arn:${AWS::Partition}:s3:::${ImageBucketName}/*"
+        - PolicyName: getAndPutObjects
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -330,8 +338,7 @@ Resources:
                 Action:
                   - s3:PutObject
                   - s3:GetObject
-                  - s3:DeleteObject
-                Resource: !Sub "arn:${AWS::Partition}:s3:::${ImageBucketName}/*"
+                Resource: !Sub "arn:${AWS::Partition}:s3:::${ResultsBucketName}/*"
         - PolicyName: detectTextRek
           PolicyDocument:
             Version: "2012-10-17"
