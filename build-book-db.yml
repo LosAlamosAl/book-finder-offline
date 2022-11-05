@@ -15,11 +15,6 @@ Parameters:
     Type: String
     Default: losalamosal--bookfinder-gateway
 
-  # Created in another stack--passed in (eventually)
-  CognitoUserPoolArn:
-    Type: String
-    Default: "arn:aws:cognito-idp:us-west-2:136545519964:userpool/us-west-2_uxiUCc2FP"
-
   LambdaFunctionName:
     Type: String
     AllowedPattern: ^[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+$
@@ -75,18 +70,6 @@ Resources:
       PathPart: "signup"
       RestApiId: !Ref BookFinderGateway
 
-  # ------------------------------------------ API GATEWAY (authorizer)
-
-  BookFinderApiAuthorizer:
-    Type: AWS::ApiGateway::Authorizer
-    Properties:
-      Name: "cognito-authorizer"
-      IdentitySource: method.request.header.Auth
-      ProviderARNs:
-        - !Ref CognitoUserPoolArn
-      RestApiId: !Ref BookFinderGateway
-      Type: COGNITO_USER_POOLS
-
   # ------------------------------------------ API GATEWAY (methods)
 
   # Don't understand why HttpMethod and IntegrationHttpMethod are specified?
@@ -95,8 +78,6 @@ Resources:
     Type: AWS::ApiGateway::Method
     Properties:
       ApiKeyRequired: false
-      AuthorizationType: COGNITO_USER_POOLS
-      AuthorizerId: !Ref BookFinderApiAuthorizer
       HttpMethod: POST
       Integration:
         Type: AWS_PROXY
@@ -294,8 +275,6 @@ Resources:
             Filter:
               S3Key:
                 Rules:
-                  #                  - Name: prefix
-                  #                    Value: */
                   - Name: suffix
                     Value: .png
 
