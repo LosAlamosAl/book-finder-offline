@@ -1,17 +1,21 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: AWS Play (versioning enabled bucket)
+Description: Lambda uploads (versioning enabled bucket)
 
 Parameters:
+  Unique:
+    Type: String
+    Default: losalamosal
+
   VersionedBucketName:
     Type: String
-    Default: losalamosal--lambda-uploads
+    Default: lambda-uploads
 
 Resources:
   VersionedBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
     Properties:
-      BucketName: !Ref VersionedBucketName
+      BucketName: !Sub "${Unique}--${VersionedBucketName}"
       VersioningConfiguration:
         Status: Enabled
       LifecycleConfiguration:
@@ -25,4 +29,4 @@ Resources:
 
 Outputs:
   BucketName:
-    Value: !Ref VersionedBucketName
+    Value: !Sub "${Unique}--${VersionedBucketName}"

@@ -11,31 +11,38 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: Offline portion of Book Finder App
 
 Parameters:
+  Unique:
+    Type: String
+
   ApiGatewayName:
     Type: String
-    Default: losalamosal--bookfinder-gateway
+    Default: bookfinder-gateway
 
-  LambdaFunctionName:
+  RekogFunctionName:
     Type: String
     AllowedPattern: ^[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+$
-    Default: rekog-lambda
+    Default: bookfinder-rekog-lambda
+
+  SearchFunctionName:
+    Type: String
+    AllowedPattern: ^[a-zA-Z0-9]+[a-zA-Z0-9-]+[a-zA-Z0-9]+$
+    Default: bookfinder-search-lambda
 
   ResultsTableName:
     Type: String
-    Default: losalamosal--bookfinder-table
+    Default: bookfinder-table
 
   ImageBucketName:
     Type: String
-    Default: losalamosal--bookfinder-uploads
+    Default: bookfinder-uploads
 
   ResultsBucketName:
     Type: String
-    Default: losalamosal--bookfinder-results
+    Default: bookfinder-results
 
-  # Created in another stack--passed in (eventually)
+  # Created in another stack--passed in--so no default
   ZipBucketName:
     Type: String
-    Default: losalamosal--lambda-uploads
 
   ZipVersionId:
     Type: String
@@ -49,34 +56,28 @@ Resources:
   BookFinderGateway:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: !Ref ApiGatewayName
+      Name: !Sub "${Unique}--${ApiGatewayName}"
       EndpointConfiguration:
         Types:
           - REGIONAL
 
   # ------------------------------------------ API GATEWAY (resources)
 
-  BookFinderUsersResource:
+  BookFinderSearchResource:
     Type: AWS::ApiGateway::Resource
     Properties:
       ParentId: !GetAtt BookFinderGateway.RootResourceId
-      PathPart: "users"
-      RestApiId: !Ref BookFinderGateway
-
-  BookFinderUsersSignupResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      ParentId: !Ref BookFinderUsersResource
-      PathPart: "signup"
+      PathPart: "search"
       RestApiId: !Ref BookFinderGateway
 
   # ------------------------------------------ API GATEWAY (methods)
 
   # Don't understand why HttpMethod and IntegrationHttpMethod are specified?
   # Why not just one? What happens if they differ?
-  BookFinderUsersSignupPOST:
+  BookFinderSearchPOST:
     Type: AWS::ApiGateway::Method
     Properties:
+      AuthorizationType: NONE
       ApiKeyRequired: false
       HttpMethod: POST
       Integration:
@@ -84,16 +85,16 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub
           - arn:${AWS::Partition}:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations
-          - lambdaArn: !GetAtt BookFinderUsersSignupLambda.Arn
-      OperationName: "user signup"
-      ResourceId: !Ref BookFinderUsersSignupResource
+          - lambdaArn: !GetAtt BookFinderSearchLambda.Arn
+      OperationName: "search"
+      ResourceId: !Ref BookFinderSearchResource
       RestApiId: !Ref BookFinderGateway
 
-  BookFinderUsersSignupOPTIONS:
+  BookFinderSearchOPTIONS:
     Type: AWS::ApiGateway::Method
     Properties:
       AuthorizationType: NONE
-      ResourceId: !Ref BookFinderUsersSignupResource
+      ResourceId: !Ref BookFinderSearchResource
       RestApiId: !Ref BookFinderGateway
       HttpMethod: OPTIONS
       Integration:
@@ -124,9 +125,9 @@ Resources:
     Type: AWS::ApiGateway::Deployment
     # An entry for each method
     DependsOn:
-      - BookFinderUsersSignupPOST
+      - BookFinderSearchPOST
       - BookFinderGatewayLoggingRole
-      - BookFinderUsersSignupPOST
+      - BookFinderSearchOPTIONS
     Properties:
       RestApiId: !Ref BookFinderGateway
 
@@ -183,7 +184,7 @@ Resources:
 
   # ------------------------------------------ API GATEWAY (lambdas/roles/logs/invoke)
 
-  BookFinderUsersSignupLambdaRole:
+  BookFinderSearchLambdaRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -197,13 +198,13 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 
-  BookFinderUsersSignupLambda:
+  BookFinderSearchLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: book-finder-users-signup
-      Role: !GetAtt BookFinderUsersSignupLambdaRole.Arn
+      FunctionName: !Sub "${Unique}--${SearchFunctionName}"
+      Role: !GetAtt BookFinderSearchLambdaRole.Arn
       Runtime: nodejs16.x
-      Handler: apigw.handler
+      Handler: search.handler
       Code:
         S3Bucket: !Ref ZipBucketName
         S3Key: !Ref ZipS3Key
@@ -212,19 +213,19 @@ Resources:
       Timeout: 30
 
   # Thanks https://ldoughty.com/2020/01/aws-http-api-gateway-cloudformation-setup/
-  BookFinderUserSignupLambdaLogGroup:
+  BookFinderSearchLambdaLogGroup:
     Type: AWS::Logs::LogGroup
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      LogGroupName: !Join [/, ["/aws/lambda", !Ref BookFinderUsersSignupLambda]]
+      LogGroupName: !Join [/, ["/aws/lambda", !Ref BookFinderSearchLambda]]
       RetentionInDays: 3
 
   BookFinderGatewayInvoke:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !GetAtt BookFinderUsersSignupLambda.Arn
+      FunctionName: !GetAtt BookFinderSearchLambda.Arn
       Principal: apigateway.amazonaws.com
       # Specification of ARN allows only that endpoint to execute lambda? Check this out.
       # note: if route *not* at API Gateway root, `SourceArn` would take the form of:
@@ -237,7 +238,7 @@ Resources:
     DeletionPolicy: Delete
     UpdateReplacePolicy: Delete
     Properties:
-      TableName: !Ref ResultsTableName
+      TableName: !Sub "${Unique}--${ResultsTableName}"
       AttributeDefinitions:
         - AttributeName: "Id"
           AttributeType: "S"
@@ -256,7 +257,7 @@ Resources:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
     Properties:
-      BucketName: !Ref ResultsBucketName
+      BucketName: !Sub "${Unique}--${ResultsBucketName}"
 
   # Must create a new bucket. CFN can "import" existing resources but it's a pain.
   # You must use the console or the CLI.
@@ -267,7 +268,7 @@ Resources:
       - S3TriggerLambdaPermission
     DeletionPolicy: Delete
     Properties:
-      BucketName: !Ref ImageBucketName
+      BucketName: !Sub "${Unique}--${ImageBucketName}"
       NotificationConfiguration:
         LambdaConfigurations:
           - Event: s3:ObjectCreated:*
@@ -284,7 +285,7 @@ Resources:
       Action: "lambda:InvokeFunction"
       FunctionName: !Ref S3TriggerLambda
       Principal: s3.amazonaws.com
-      SourceArn: !Sub "arn:${AWS::Partition}:s3:::${ImageBucketName}"
+      SourceArn: !Sub "arn:${AWS::Partition}:s3:::${Unique}--${ImageBucketName}"
       SourceAccount: !Ref AWS::AccountId
 
   S3TriggerLambdaRole:
@@ -308,7 +309,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - s3:GetObject
-                Resource: !Sub "arn:${AWS::Partition}:s3:::${ImageBucketName}/*"
+                Resource: !Sub "arn:${AWS::Partition}:s3:::${Unique}--${ImageBucketName}/*"
         - PolicyName: getAndPutObjects
           PolicyDocument:
             Version: "2012-10-17"
@@ -317,7 +318,7 @@ Resources:
                 Action:
                   - s3:PutObject
                   - s3:GetObject
-                Resource: !Sub "arn:${AWS::Partition}:s3:::${ResultsBucketName}/*"
+                Resource: !Sub "arn:${AWS::Partition}:s3:::${Unique}--${ResultsBucketName}/*"
         - PolicyName: detectTextRek
           PolicyDocument:
             Version: "2012-10-17"
@@ -339,14 +340,14 @@ Resources:
   S3TriggerLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Ref LambdaFunctionName
+      FunctionName: !Sub "${Unique}--${RekogFunctionName}"
       Role: !GetAtt S3TriggerLambdaRole.Arn
       Runtime: nodejs16.x
       Environment:
         Variables:
-          DB_TABLE_NAME: !Ref ResultsTableName
-          RESULTS_BUCKET_NAME: !Ref ResultsBucketName
-          UPLOADS_BUCKET_NAME: !Ref ImageBucketName
+          DB_TABLE_NAME: !Sub "${Unique}--${ResultsTableName}"
+          RESULTS_BUCKET_NAME: !Sub "${Unique}--${ResultsBucketName}"
+          UPLOADS_BUCKET_NAME: !Sub "${Unique}--${ImageBucketName}"
       Handler: rekog.handler
       Code:
         S3Bucket: !Ref ZipBucketName
