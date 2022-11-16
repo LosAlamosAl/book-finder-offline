@@ -97,3 +97,16 @@ aws apigateway create-deployment --rest-api-id REST_API_ID \
 ```
 
 Remember to **delete** `lambda.zip` when you delete the stack.
+
+Setting up a pull request for Boo's main repository. First, fork his repository and clone it to my machine. Then:
+
+```sh
+git checkout -b new-branch-name
+diff -Naru server/lambda/rekog.js ~/GitHub/book-finder-offline/lambda/rekog.js > ~/tmp/boo.patch
+patch server/lambda/rekog.js < ~/tmp/boo.patch
+git add -A
+git commit -m "Message"
+git push --set-upstream origin new-branch-name
+```
+
+Finally, go to GitHub and submit the PR.
