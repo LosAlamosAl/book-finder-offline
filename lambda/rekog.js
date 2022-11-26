@@ -1,3 +1,4 @@
+// If we're using Node 18.x we don't need to include JS SDK
 // TODO: Add descriptive header comment.
 const path = require("path");
 const { Image, createCanvas } = require("canvas");
@@ -143,30 +144,33 @@ async function rekogText(bucket, key) {
 // Write JSON version of ALL text found in image
 // Written data is result of merging data from all passes
 // into the single object.
-async function writeAllFound(bucket, key, found, uuid, imageName) {
-  // Make returned JSON smaller by reducing precision of the
-  // X and Y values of the text's bounding polygon and deleting
-  // all occurrences of WORDs found (client and server only need
-  // LINEs).
-  // https://stackoverflow.com/a/9340239/227441
+async function writeAllFound(bucket, key, found, uuid, imageName, includeLines = true) {
   let start = performance.now();
 
-  // FIXME: tie this modification to the comment on keeping LINEs (below)
+  // We only use Polygon result. BoundingBoxes are axis aligned and
+  // not useful here or in the clientUI.
   found.TextDetections.forEach((label) => {
     delete label.Geometry.BoundingBox;
-    if (label.Type == "LINE") {
-      delete label.Geometry;
-    }
+    //if (label.Type == "LINE") {
+    //  delete label.Geometry;
+    //}
   });
 
-  // Initially we thought the UI would only need LINEs. But, since the bounding
-  // boxes on them are so "odd" we will probably keep LINEs in the output JSON.
-  found.TextDetections = found.TextDetections.filter((t) => t.Type == "LINE");
+  // Retain LINEs unless the callse says no. Use caution thogh: testing has
+  // shown that Polygons on LINEs can look "weird". Look at images with
+  // prefix of "debug" in the results bucket to verify desired results.
+  if (!includeLines) {
+    found.TextDetections = found.TextDetections.filter((t) => t.Type == "LINE");
+  }
+
+  // Make returned JSON smaller by reducing precision of the
+  // X and Y values of the text's bounding.
+  // https://stackoverflow.com/a/9340239/227441
 
   // FIXME: figure out where ParentId == undefined is coming from!?
   // TODO: write a simple test for this "bug"
   // For some unknown reason the following will fail with ParentId === undefined
-  // on a LINE even though LINEs don't have a ParentId KV pair, Mystifying.
+  // on a LINE even though LINEs don't have a ParentId KV pair. Mystifying.
   reduced = JSON.stringify(found, function (key, val) {
     if (val !== undefined) return val.toFixed ? Number(val.toFixed(3)) : val;
   });

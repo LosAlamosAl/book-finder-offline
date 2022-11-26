@@ -203,6 +203,11 @@ Resources:
     Properties:
       FunctionName: !Sub "${Unique}--${SearchFunctionName}"
       Role: !GetAtt BookFinderSearchLambdaRole.Arn
+      Environment:
+        Variables:
+          DB_TABLE_NAME: !Sub "${Unique}--${ResultsTableName}"
+          RESULTS_BUCKET_NAME: !Sub "${Unique}--${ResultsBucketName}"
+          UPLOADS_BUCKET_NAME: !Sub "${Unique}--${ImageBucketName}"
       Runtime: nodejs16.x
       Handler: search.handler
       Code:
@@ -258,6 +263,87 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       BucketName: !Sub "${Unique}--${ResultsBucketName}"
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            Id: "results expiration rule"
+            ExpirationInDays: 10
+
+  # ---------------------------------------------------------------- POLICIES
+  ReadImageBucketPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: readFromImageBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource: !Sub "arn:${AWS::Partition}:s3:::${Unique}--${ImageBucketName}/*"
+      Roles:
+        - !Ref BookFinderSearchLambdaRole
+        - !Ref S3TriggerLambdaRole
+
+  WriteResultsBucketPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: writeToResultsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource: !Sub "arn:${AWS::Partition}:s3:::${Unique}--${ResultsBucketName}/*"
+      Roles:
+        - !Ref BookFinderSearchLambdaRole
+        - !Ref S3TriggerLambdaRole
+
+  ReadFromResultsBucketPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: readFromResultsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource: !Sub "arn:${AWS::Partition}:s3:::${Unique}--${ResultsBucketName}/*"
+      Roles:
+        - !Ref S3TriggerLambdaRole
+
+  ReadFromResultsTable:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: readFromResultsTable
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+            Resource:
+              - !GetAtt ResultsTable.Arn
+      Roles:
+        - !Ref BookFinderSearchLambdaRole
+
+  WriteToResultsTable:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: writeToResultsTable
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:DescribeTable
+              - dynamodb:PutItem
+            Resource:
+              - !GetAtt ResultsTable.Arn
+      Roles:
+        - !Ref S3TriggerLambdaRole
 
   # Must create a new bucket. CFN can "import" existing resources but it's a pain.
   # You must use the console or the CLI.
@@ -302,23 +388,6 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
       Policies:
-        - PolicyName: getObjects
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                Resource: !Sub "arn:${AWS::Partition}:s3:::${Unique}--${ImageBucketName}/*"
-        - PolicyName: getAndPutObjects
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:GetObject
-                Resource: !Sub "arn:${AWS::Partition}:s3:::${Unique}--${ResultsBucketName}/*"
         - PolicyName: detectTextRek
           PolicyDocument:
             Version: "2012-10-17"
@@ -326,16 +395,6 @@ Resources:
               - Effect: Allow
                 Action: rekognition:DetectText
                 Resource: "*"
-        - PolicyName: writeToDynamoDB
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - dynamodb:DescribeTable
-                  - dynamodb:PutItem
-                Resource:
-                  - !GetAtt ResultsTable.Arn
 
   S3TriggerLambda:
     Type: AWS::Lambda::Function

@@ -1,3 +1,5 @@
+// If we're using Node 18.x we don't need to include JS SDK.
+
 exports.handler = async (event, context) => {
   console.log(JSON.stringify(event));
   //  console.log(JSON.stringify(context));
