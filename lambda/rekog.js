@@ -151,9 +151,6 @@ async function writeAllFound(bucket, key, found, uuid, imageName, includeLines =
   // not useful here or in the clientUI.
   found.TextDetections.forEach((label) => {
     delete label.Geometry.BoundingBox;
-    //if (label.Type == "LINE") {
-    //  delete label.Geometry;
-    //}
   });
 
   // Retain LINEs unless the callse says no. Use caution thogh: testing has
@@ -177,15 +174,10 @@ async function writeAllFound(bucket, key, found, uuid, imageName, includeLines =
 
   setElapsedTime("writeAllFound: elide/precision", performance.now() - start);
 
-  // This extra step is needed to quote (e.g. \") all internal double quotes if we're
-  // going to put this into DynamoDB. It's the client's responsibility to unquote
-  // (e.g. parse) correctly. DynamoDB doesn't directly support JSON item types.
-  const quoteReduced = JSON.stringify(reduced);
-
   const params = {
     Bucket: bucket,
     Key: key,
-    Body: quoteReduced
+    Body: reduced
   };
   const command = new PutObjectCommand(params);
 
@@ -205,7 +197,7 @@ async function writeAllFound(bucket, key, found, uuid, imageName, includeLines =
     Item: {
       Id: { S: uuid },
       Image: { S: imageName },
-      RekogResults: { S: quoteReduced }
+      RekogResults: { S: reduced }
     }
   };
 

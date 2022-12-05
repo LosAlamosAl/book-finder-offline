@@ -214,6 +214,8 @@ Resources:
         S3Bucket: !Ref ZipBucketName
         S3Key: !Ref ZipS3Key
         S3ObjectVersion: !Ref ZipVersionId
+      Layers:
+        - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:1
       MemorySize: 128
       Timeout: 30
 
@@ -323,7 +325,7 @@ Resources:
         Statement:
           - Effect: Allow
             Action:
-              - dynamodb:GetItem
+              - dynamodb:Query
             Resource:
               - !GetAtt ResultsTable.Arn
       Roles:

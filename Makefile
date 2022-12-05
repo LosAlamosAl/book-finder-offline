@@ -1,15 +1,11 @@
+# This Makefile is probably overly complex and error prone. But, it
+# does make developer life easier.
+# FIXME: Investigate SAM CLI or scripting to replace use of make.
 SHELL := /bin/bash
 .SHELLFLAGS := -c
-# stack-name
-# lambda upload bucket (a priori)
-# prefix (pre-defined account name/)
-# buckets
-# table name
-# lambda layer
-# all lambda function names?
-# two buckets now: results, uploads
 
-# This should be the same as Unique in CFN files.
+# This should be the same as Unique in CFN files
+# FIXME: the above requirement is error prone--don't do defaults
 UNIQUE := losalamosal
 OFFLINE_STACK := $(UNIQUE)--bookfinder-offline
 CFN_FILE := build-book-db.yml
@@ -62,11 +58,17 @@ create:
 		--capabilities CAPABILITY_NAMED_IAM
 
 # --- Update parts of the previously created stack -- used after initial create -------------
-##################### HOW TO GET THIS TO DEPEND ON LAMBDA AND CFN FILE?
-update: build-book-db.yml
-# Here's where we would check a HACK variable and NOT run deploy if we update lambda
-# code behind the back door.
+#     Really should depend on BOTH CFN_FILE and any modified lambdas
+#     Implementing this is probably kludgy in make.
+.PHONY: update
+update:
+# Monster hack. Touch the CFN file (even if it's already been modified)
+# to make DAMN sure that the cloudformation deploy happens. Need to
+# figure out how to get make to do this without this hack.
+	@touch $(CFN_FILE)
+# Always update the lambda Zip file and upload to S3
 	@make -C lambda
+# TODO: if CFN_FILE updated (newer than what?)
 	@set -e ;\
 	zip_version=$$(aws s3api list-object-versions                                 \
 		--bucket $(LAMBDA_UPLOAD_BUCKET) --prefix lambda.zip                             \
@@ -80,6 +82,7 @@ update: build-book-db.yml
 			ZipBucketName=$(LAMBDA_UPLOAD_BUCKET)           \
 			Unique=$(UNIQUE)    \
 		--capabilities CAPABILITY_NAMED_IAM
+# TODO: else must want to back door modified lambda code
 
 # --- Delete stack and all its resources ----------------------------------------------------
 .PHONY: delete
@@ -105,7 +108,8 @@ delete:
 	@aws s3 rm s3://$(OFFLINE_RESULTS_BUCKET) --recursive
 	@aws s3 rm s3://$(OFFLINE_UPLOADS_BUCKET) --recursive
 	@aws cloudformation delete-stack --stack-name $(OFFLINE_STACK)
-
+# TODO: add cloudformation describe-stack-resources to show what resorces must be
+# deleted by hand.
 
 .PHONY: test
 test:
