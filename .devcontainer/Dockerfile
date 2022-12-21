@@ -18,6 +18,7 @@ RUN apt-get update \
         less                                      \
         httpie                                    \
         curl                                      \
+        cloc                                      \
         patch                                     \
         git-all                                   \
         jq                                        \

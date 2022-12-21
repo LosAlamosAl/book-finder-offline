@@ -326,6 +326,7 @@ Resources:
           - Effect: Allow
             Action:
               - dynamodb:Query
+              - dynamodb:GetItem
             Resource:
               - !GetAtt ResultsTable.Arn
       Roles:

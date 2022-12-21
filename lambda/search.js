@@ -5,6 +5,7 @@ const { Image, createCanvas } = require("canvas");
 const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
 const {
   DynamoDBClient,
+  GetItemCommand,
   QueryCommand,
   ConsumedCapacityFilterSensitiveLog
 } = require("@aws-sdk/client-dynamodb");
@@ -41,23 +42,21 @@ exports.handler = async (event, context) => {
   console.log(`resultsPrefix: ${resultsPrefix}`);
   console.log(`tableName: ${tableName}`);
 
-  // Get all the text found, in all images, for this UUID.
-  const allTextFound = await getTextFoundFromDB(userUUID, tableName);
-  console.log(allTextFound);
-  const textFoundByImage = [];
-  for (i of allTextFound.Items) {
-    textFoundByImage.push({ image: i.Image.S, text: JSON.parse(i.RekogResults.S) });
-  }
-  console.log(textFoundByImage);
+  // Query the database to get all images associatated with given UUID.
+  // These images will be used as second key on subsequent requests
+  // to the database for found text for that UUID and image.
+  const allImageKeys = await getAllImageKeys(userUUID, tableName);
 
-  // For each image, search it for matches with the search terms.
   let searchSummary = [];
-  for (i of textFoundByImage) {
-    let searchResultsForImage = searchImage(i, searchTerms);
+  // Main loop
+  for (imgKey of allImageKeys) {
+    let textFoundForImage = await getTextFoundForImage(imgKey, userUUID, tableName);
+    console.log(textFoundForImage);
+    let searchResultsForImage = searchImage(textFoundForImage, searchTerms);
+    console.log(searchResultsForImage);
     let imageSummary = updateSearchSummary(searchResultsForImage);
     console.log(imageSummary);
     searchSummary.push(imageSummary);
-    console.log(searchResultsForImage);
     writeSearchResultsJSON(searchResultsForImage, resultsPrefix);
     writeSearchResultsImage(searchResultsForImage, resultsPrefix, uploadPrefix);
   }
@@ -73,37 +72,36 @@ exports.handler = async (event, context) => {
   return ret;
 };
 
-// Return
-// {image: "name", results: [{keyword: "term", DetectedText: [...]}
+// --------------------------------------------------
+// Return:
+// [{keyword: "term", DetectedText: [...]]
 function searchImage(allText, terms) {
-  let ret = {
-    image: allText.image,
-    results: []
-  };
+  let ret = [];
 
   for (t of terms) {
     let hits = {
       keyword: t,
       TextDetections: []
     };
-    for (i of allText.text.TextDetections) {
+    for (i of allText.TextDetections) {
       if (i.DetectedText.toLowerCase().includes(t.toLowerCase())) {
         hits.TextDetections.push(i);
       }
     }
-    ret.results.push(hits);
+    ret.push(hits);
   }
 
   return ret;
 }
 
+// --------------------------------------------------
+// Summary results to return from lambda. Remove things
+// that won't be useful in that context (e.g. Geometry).
 function updateSearchSummary(imageResults) {
   // by image
-  let imageSummary = {
-    image: imageResults.image,
-    summary: []
-  };
-  for (k of imageResults.results) {
+  let imageSummary = [];
+
+  for (k of imageResults) {
     // by keyword
     let keywordSummary = {
       keyword: k.keyword,
@@ -113,13 +111,19 @@ function updateSearchSummary(imageResults) {
       // by LINE or WORD
       keywordSummary.searchHits.push({ text: t.DetectedText, type: t.Type });
     }
-    imageSummary.summary.push(keywordSummary);
+    imageSummary.push(keywordSummary);
   }
+
   return imageSummary;
 }
 
+// --------------------------------------------------
+// We already return them from this lambda, but let's
+// save them to a file in S3 just in case.
 function writeSearchResultsJSON(results, outPrefix) {}
 
+// --------------------------------------------------
+// Save an image showing the keywords found in that image.
 function writeSearchResultsImage(results, outPrefix, inPrefix) {}
 
 // --------------------------------------------------
@@ -132,15 +136,17 @@ function setElapsedTime(key, et) {
 }
 
 // --------------------------------------------------
-// Query the DynamoDB database to get all text found (by Rekognition)
-// in all images for a given id (userUUID).
-async function getTextFoundFromDB(id, table) {
+// Query the DynamoDB database to get all the image names (to be
+// used as keys) for a given id (userUUID).
+// Returns an array of strings which are the image names.
+async function getAllImageKeys(id, table) {
   const queryParams = {
     TableName: table,
     KeyConditionExpression: "Id = :id",
     ExpressionAttributeValues: {
       ":id": { S: id }
-    }
+    },
+    ProjectionExpression: "Image"
   };
 
   const queryCommand = new QueryCommand(queryParams);
@@ -148,10 +154,39 @@ async function getTextFoundFromDB(id, table) {
   try {
     const start = performance.now();
     const data = await dynoClient.send(queryCommand);
-    setElapsedTime("getTextFoundFromDB: queryCommand", performance.now() - start);
-    return data;
+    let res = [];
+    for (i of data.Items) {
+      res.push(i.Image.S);
+    }
+    setElapsedTime("getAllImageKeys: queryCommand", performance.now() - start);
+    return res;
   } catch (error) {
-    console.log(`queryCommand failed: ${JSON.stringify(error)}`);
+    console.log(`getAllImageKeys: queryCommand failed: ${JSON.stringify(error)}`);
+    throw new Error(error);
+  }
+}
+
+// --------------------------------------------------
+// Query the DynamoDB database to get all text found (by Rekognition)
+// in a single image for a given id (userUUID).
+async function getTextFoundForImage(image, id, table) {
+  const getParams = {
+    TableName: table,
+    Key: {
+      Id: { S: id },
+      Image: { S: image }
+    }
+  };
+
+  const getItemCommand = new GetItemCommand(getParams);
+
+  try {
+    const start = performance.now();
+    const data = await dynoClient.send(getItemCommand);
+    setElapsedTime("getTextFoundForImage: getItemCommand", performance.now() - start);
+    return JSON.parse(data.Item.RekogResults.S);
+  } catch (error) {
+    console.log(`getTextFoundForImage: getItemCommand failed: ${JSON.stringify(error)}`);
     throw new Error(error);
   }
 }

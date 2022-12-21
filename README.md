@@ -112,3 +112,5 @@ git push --set-upstream origin new-branch-name
 Finally, go to GitHub and submit the PR.
 
 One reason **not** to use the `package` method of lambda upload: it requires an update to the stack. If you do it my way, with zip version passed in, you can skip CFN update and just set the new lambda code on the lambda resource (using `aws lambda update-function-code`).
+
+Lame duplication of S3 read/write functions and drawing code. Could move in to module.
