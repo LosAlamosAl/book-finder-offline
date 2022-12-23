@@ -217,7 +217,7 @@ Resources:
       Layers:
         - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:1
       MemorySize: 128
-      Timeout: 30
+      Timeout: 3
 
   # Thanks https://ldoughty.com/2020/01/aws-http-api-gateway-cloudformation-setup/
   BookFinderSearchLambdaLogGroup:
@@ -420,7 +420,7 @@ Resources:
       Layers:
         - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:1
       MemorySize: 1024
-      Timeout: 300
+      Timeout: 30
 
   S3TriggerLimitRetries:
     Type: AWS::Lambda::EventInvokeConfig

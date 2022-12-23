@@ -19,6 +19,7 @@ const s3client = new S3Client();
 const elapsedTimers = {};
 
 exports.handler = async (event, context) => {
+  const start = performance.now();
   console.log(JSON.stringify(event));
 
   const lambdaInput = JSON.parse(event.body);
@@ -28,11 +29,12 @@ exports.handler = async (event, context) => {
   const uploadsBucket = process.env.UPLOADS_BUCKET_NAME;
   const tableName = process.env.DB_TABLE_NAME;
 
+  // Unique string identifies wach individual call to search.
   const nowString = Date.now();
 
   const userUUID = lambdaInput.UUID;
   const uploadPrefix = `${uploadsBucket}/${userUUID}`;
-  const resultsPrefix = `${resultsBucket}/${userUUID}/${nowString}`;
+  const resultsPrefix = `${userUUID}/${nowString}`;
   const searchTerms = lambdaInput.keywords;
   console.log(searchTerms);
 
@@ -47,27 +49,43 @@ exports.handler = async (event, context) => {
   // to the database for found text for that UUID and image.
   const allImageKeys = await getAllImageKeys(userUUID, tableName);
 
+  // Simplified summary of search results (searchSummary) returned to
+  // caller of lambda. Full search results (searchDetail), including
+  // bounding polygons, are written to a JSON file in S3.
   let searchSummary = [];
+  let searchDetail = [];
+
   // Main loop
   for (imgKey of allImageKeys) {
     let textFoundForImage = await getTextFoundForImage(imgKey, userUUID, tableName);
+    console.log("textFoundForImage:");
     console.log(textFoundForImage);
     let searchResultsForImage = searchImage(textFoundForImage, searchTerms);
+    console.log("searchResultsForImage:");
     console.log(searchResultsForImage);
     let imageSummary = updateSearchSummary(searchResultsForImage);
+    console.log("imageSummary:");
     console.log(imageSummary);
-    searchSummary.push(imageSummary);
-    writeSearchResultsJSON(searchResultsForImage, resultsPrefix);
+    searchSummary.push({ image: imgKey, results: imageSummary });
+    searchDetail.push({ image: imgKey, results: searchResultsForImage });
+    console.log("searchSummary:");
+    console.log(searchSummary);
+    console.log("searchDetail:");
+    console.log(searchDetail);
     writeSearchResultsImage(searchResultsForImage, resultsPrefix, uploadPrefix);
   }
 
-  console.log(elapsedTimers);
+  await writeSearchResultsJSON(searchDetail, resultsBucket, resultsPrefix);
+
   let ret = {
     isBase64Encoded: false,
     statusCode: 200,
     headers: { "Access-Control-Allow-Origin": "*" },
     body: JSON.stringify(searchSummary)
   };
+
+  setElapsedTime("The whole enchilada", performance.now() - start);
+  console.log(elapsedTimers);
 
   return ret;
 };
@@ -76,6 +94,7 @@ exports.handler = async (event, context) => {
 // Return:
 // [{keyword: "term", DetectedText: [...]]
 function searchImage(allText, terms) {
+  const start = performance.now();
   let ret = [];
 
   for (t of terms) {
@@ -90,7 +109,7 @@ function searchImage(allText, terms) {
     }
     ret.push(hits);
   }
-
+  setElapsedTime("searchImage", performance.now() - start);
   return ret;
 }
 
@@ -98,6 +117,7 @@ function searchImage(allText, terms) {
 // Summary results to return from lambda. Remove things
 // that won't be useful in that context (e.g. Geometry).
 function updateSearchSummary(imageResults) {
+  const start = performance.now();
   // by image
   let imageSummary = [];
 
@@ -113,14 +133,32 @@ function updateSearchSummary(imageResults) {
     }
     imageSummary.push(keywordSummary);
   }
-
+  setElapsedTime("updateSearchSummary", performance.now() - start);
   return imageSummary;
 }
 
 // --------------------------------------------------
 // We already return them from this lambda, but let's
-// save them to a file in S3 just in case.
-function writeSearchResultsJSON(results, outPrefix) {}
+// save them to a file in S3 just in case (includes
+// Geometry, etc. which we don't return from this lambda).
+async function writeSearchResultsJSON(found, bucket, prefix) {
+  let start = performance.now();
+
+  const params = {
+    Bucket: bucket,
+    Key: `${prefix}/hits.json`,
+    Body: JSON.stringify(found)
+  };
+  const command = new PutObjectCommand(params);
+
+  try {
+    const data = await s3client.send(command);
+    setElapsedTime("writeSearchResultsJSON", performance.now() - start);
+  } catch (err) {
+    console.log(`writeSearchResultsJSON failed: ${JSON.stringify(err)}`);
+    throw new Error(JSON.stringify(err));
+  }
+}
 
 // --------------------------------------------------
 // Save an image showing the keywords found in that image.
