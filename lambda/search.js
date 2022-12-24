@@ -33,13 +33,14 @@ exports.handler = async (event, context) => {
   const nowString = Date.now();
 
   const userUUID = lambdaInput.UUID;
-  const uploadPrefix = `${uploadsBucket}/${userUUID}`;
+  const uploadsPrefix = `${userUUID}`;
   const resultsPrefix = `${userUUID}/${nowString}`;
   const searchTerms = lambdaInput.keywords;
   console.log(searchTerms);
 
   console.log(`userUUID: ${userUUID}`);
-  console.log(`uploadBucket: ${uploadsBucket}`);
+  console.log(`uploadsBucket: ${uploadsBucket}`);
+  console.log(`uploadsPrefix" ${uploadsPrefix}`);
   console.log(`resultsBucket: ${resultsBucket}`);
   console.log(`resultsPrefix: ${resultsPrefix}`);
   console.log(`tableName: ${tableName}`);
@@ -72,10 +73,22 @@ exports.handler = async (event, context) => {
     console.log(searchSummary);
     console.log("searchDetail:");
     console.log(searchDetail);
-    writeSearchResultsImage(searchResultsForImage, resultsPrefix, uploadPrefix);
+    await writeSearchResultsImage(
+      imgKey,
+      searchResultsForImage,
+      resultsBucket,
+      resultsPrefix,
+      uploadsBucket,
+      uploadsPrefix
+    );
   }
 
   await writeSearchResultsJSON(searchDetail, resultsBucket, resultsPrefix);
+
+  setElapsedTime("The whole enchilada", performance.now() - start);
+  console.log(elapsedTimers);
+
+  searchSummary.push({ "execution times": elapsedTimers });
 
   let ret = {
     isBase64Encoded: false,
@@ -83,9 +96,6 @@ exports.handler = async (event, context) => {
     headers: { "Access-Control-Allow-Origin": "*" },
     body: JSON.stringify(searchSummary)
   };
-
-  setElapsedTime("The whole enchilada", performance.now() - start);
-  console.log(elapsedTimers);
 
   return ret;
 };
@@ -162,7 +172,65 @@ async function writeSearchResultsJSON(found, bucket, prefix) {
 
 // --------------------------------------------------
 // Save an image showing the keywords found in that image.
-function writeSearchResultsImage(results, outPrefix, inPrefix) {}
+async function writeSearchResultsImage(imageName, found, outBucket, outPrefix, inBucket, inPrefix) {
+  let image = await loadOriginalImage(inBucket, inPrefix, imageName);
+  console.log(`originalImage    w: ${image.width}  h: ${image.height}`);
+
+  const w = image.width;
+  const h = image.height;
+  const canvas = createCanvas(w, h);
+  const ctx = canvas.getContext("2d");
+  let start = performance.now();
+  ctx.drawImage(image, 0, 0);
+  setElapsedTime("writeSearcResultsImage: drawImage", performance.now() - start);
+
+  // FIXME: This deeply nested loop is ugly. Try to simplify.
+  for (hit of found) {
+    // Not drawing LINEs--Rekognition results buggy. If they get it
+    // fixed, add the code back in (from rekog.js).
+    hit.TextDetections.forEach((label) => {
+      // Draw a red line around all WORDs found.
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "rgba(227, 11, 11, 0.92)";
+      ctx.beginPath();
+      let first = true;
+      label.Geometry.Polygon.forEach((poly) => {
+        if (first) {
+          ctx.moveTo(w * poly.X, h * poly.Y);
+          first = false;
+        } else {
+          ctx.lineTo(w * poly.X, h * poly.Y);
+        }
+      });
+      ctx.closePath();
+      ctx.stroke();
+    });
+  }
+
+  start = performance.now();
+  const buffer = canvas.toBuffer("image/png", {
+    compressionLevel: 1,
+    filters: canvas.PNG_ALL_FILTERS
+  });
+  setElapsedTime("writeSearchResultsImage: toBuffer", performance.now() - start);
+
+  const params = {
+    Bucket: outBucket,
+    Key: `${outPrefix}/${imageName}`,
+    Body: buffer
+  };
+  const command = new PutObjectCommand(params);
+
+  try {
+    let start = performance.now();
+    const data = await s3client.send(command);
+    setElapsedTime("writeSearchResultsImage: S3 write", performance.now() - start);
+    return;
+  } catch (err) {
+    console.log(`writeSearchResultsImage failed: ${JSON.stringify(err)}`);
+    throw new Error(JSON.stringify(err));
+  }
+}
 
 // --------------------------------------------------
 
@@ -225,6 +293,41 @@ async function getTextFoundForImage(image, id, table) {
     return JSON.parse(data.Item.RekogResults.S);
   } catch (error) {
     console.log(`getTextFoundForImage: getItemCommand failed: ${JSON.stringify(error)}`);
+    throw new Error(error);
+  }
+}
+
+// --------------------------------------------------
+// Read original source image from S3 and make a node-canvas
+// Image object out of it.
+async function loadOriginalImage(bucket, prefix, key) {
+  let start = performance.now();
+  console.log(`loadOriginalImage loading: ${bucket}/${prefix}/${key}`);
+  const params = {
+    Bucket: bucket,
+    Key: `${prefix}/${key}`
+  };
+  const command = new GetObjectCommand(params);
+
+  const streamToBuffer = (stream) => {
+    return new Promise((resolve, reject) => {
+      const chunks = [];
+      stream.on("data", (chunk) => chunks.push(chunk));
+      stream.on("error", reject);
+      stream.on("end", () => resolve(Buffer.concat(chunks)));
+    });
+  };
+
+  let original = new Image();
+  try {
+    const data = await s3client.send(command);
+    const body = await streamToBuffer(data.Body);
+    setElapsedTime("loadOriginalImage", performance.now() - start);
+
+    original.src = body;
+    return original;
+  } catch (error) {
+    console.log(`loadOriginalImage failed: ${JSON.stringify(error)}`);
     throw new Error(error);
   }
 }

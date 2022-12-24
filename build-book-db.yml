@@ -216,8 +216,8 @@ Resources:
         S3ObjectVersion: !Ref ZipVersionId
       Layers:
         - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:1
-      MemorySize: 128
-      Timeout: 3
+      MemorySize: 1024
+      Timeout: 60
 
   # Thanks https://ldoughty.com/2020/01/aws-http-api-gateway-cloudformation-setup/
   BookFinderSearchLambdaLogGroup:
@@ -314,6 +314,7 @@ Resources:
               - s3:GetObject
             Resource: !Sub "arn:${AWS::Partition}:s3:::${Unique}--${ResultsBucketName}/*"
       Roles:
+        # This is needed because Rekognition needs bucket/key (can't use in memory image)
         - !Ref S3TriggerLambdaRole
 
   ReadFromResultsTable:
@@ -420,7 +421,7 @@ Resources:
       Layers:
         - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:1
       MemorySize: 1024
-      Timeout: 30
+      Timeout: 60
 
   S3TriggerLimitRetries:
     Type: AWS::Lambda::EventInvokeConfig
