@@ -1,5 +1,22 @@
 ## Book Finder: Offline Processing
 
+- Requirements
+  - AWS account
+  - Tools
+  - Lambda layer for `node-canvas`
+- Description of Application
+- Building
+  - The Makefile
+    - naming conventions
+- Running
+  - Commands
+    - `curl`
+    - Various `aws` commands
+    - `jq`
+      - versus `--query`
+- Warnings and Caveats
+  - S3 trigger
+
 `cat results/IMG_1241.json| jq '.TextDetections[].DetectedText'`
 `cat results/IMG_1241.json| jq '. | fromjson'`
 

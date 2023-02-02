@@ -119,7 +119,7 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: false
             method.response.header.Access-Control-Allow-Origin: false
 
-  # ------------------------------------------ API GATEWAY (deployment/stage/logging)
+  # ------------------------------------------ API GATEWAY (deployment/throttling/stage/logging)
 
   BookFinderDeployment:
     Type: AWS::ApiGateway::Deployment
@@ -181,6 +181,19 @@ Resources:
     Properties:
       LogGroupName: !Join [/, ["/aws/apigateway", !Ref BookFinderGateway]]
       RetentionInDays: 3
+
+  BookFinderUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      ApiStages:
+        - ApiId: !Ref BookFinderGateway
+          Stage: !Ref BookFinderStage
+      Quota:
+        Limit: 50
+        Period: DAY
+      Throttle:
+        BurstLimit: 2
+        RateLimit: 1
 
   # ------------------------------------------ API GATEWAY (lambdas/roles/logs/invoke)
 

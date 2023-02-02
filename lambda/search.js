@@ -1,4 +1,4 @@
-// If we're using Node 18.x we don't need to include JS SDK
+// If we're using Node 18.x we don't need to include AWS JS SDK
 // TODO: Add descriptive header comment.
 const { Image, createCanvas } = require("canvas");
 

@@ -22,7 +22,9 @@ Resources:
         Rules:
           - Status: Enabled
             Id: "lambda version expiration rule"
-            ExpirationInDays: 1
+            # Don't use ExpirationIn Days. It will expire the current version
+            # which will break the Makefile when it tries to get a version ID.
+            #           ExpirationInDays: 1
             NoncurrentVersionExpiration:
               NoncurrentDays: 1
               NewerNoncurrentVersions: 3
