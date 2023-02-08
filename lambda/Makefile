@@ -20,5 +20,5 @@ lambda.zip: *.js
 	@aws s3 cp lambda.zip s3://$(LAMBDA_UPLOAD_BUCKET)
 	@for FILE in $? ;\
 	do \
-		echo ...lambda code was modifier: $$FILE ;\
+		echo ...lambda code was modified: $$FILE ;\
 	done

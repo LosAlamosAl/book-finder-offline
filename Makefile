@@ -15,10 +15,10 @@ export LAMBDA_UPLOAD_BUCKET := $(UNIQUE)--lambda-uploads
 LAMBDA_UPLOAD_STACK := $(UNIQUE)--lambda-upload
 LAMBDA_UPLOAD_CFN := lambda-bucket.yml
 
-OFFLINE_UPLOADS_BUCKET := $(UNIQUE)--bookfinder-offline-uploads
-OFFLINE_RESULTS_BUCKET := $(UNIQUE)--bookfinder-offline-results
+OFFLINE_UPLOADS_BUCKET := $(UNIQUE)--bookfinder-uploads
+OFFLINE_RESULTS_BUCKET := $(UNIQUE)--bookfinder-results
 
-# --- Default target will be un when no target specified. -----------------------------------
+# --- Default target will be run when no target specified. -----------------------------------
 .PHONY: error
 error:
 	@echo "Please choose one of the following targets: create, update, delete"
@@ -56,6 +56,10 @@ create:
 			ZipBucketName=$(LAMBDA_UPLOAD_BUCKET)           \
 			Unique=$(UNIQUE)    \
 		--capabilities CAPABILITY_NAMED_IAM
+
+.PHONY: read
+read:
+	@aws cloudformation describe-stacks --stack-name $(OFFLINE_STACK)
 
 # --- Update parts of the previously created stack -- used after initial create -------------
 #     Really should depend on BOTH CFN_FILE and any modified lambdas
@@ -96,8 +100,14 @@ delete:
 		--output=json \
 		--query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}' > /tmp/files_to_delete
 	@aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) --delete file:///tmp/files_to_delete
+	@aws s3api list-object-versions \
+		--bucket $(LAMBDA_UPLOAD_BUCKET) \
+		--output=json \
+		--query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' > /tmp/markers_to_delete
+	@aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) --delete file:///tmp/markers_to_delete
 	@aws cloudformation delete-stack --stack-name $(LAMBDA_UPLOAD_STACK)
 	@rm /tmp/files_to_delete
+	@rm /tmp/markers_to_delete
 	@rm lambda/lambda.zip
 	@rm -rf lambda/node_modules
 	@rm lambda/package-lock.json
@@ -111,18 +121,13 @@ delete:
 # TODO: add cloudformation describe-stack-resources to show what resorces must be
 # deleted by hand.
 
-.PHONY: test
-test:
-	@set -e ;\
-	if ! aws cloudformation describe-stacks --stack-name book-finder--cognito-auth &> /dev/null; then \
-		echo "Cognito auth stack not created: create it via Makefile.cognito" ;\
-		exit 1 ;\
-	fi   ;\
-	client_id=$$(aws cloudformation describe-stacks --stack-name book-finder--cognito-auth \
-		--query 'Stacks[0].Outputs[?OutputKey == `UserPoolClientId`].OutputValue' \
-		--output text)   ;\
-	echo $$client_id    ;\
-	pool_id=$$(aws cloudformation describe-stacks --stack-name book-finder--cognito-auth \
-		--query 'Stacks[0].Outputs[?OutputKey == `UserPoolId`].OutputValue' \
-		--output text)   ;\
-	echo $$pool_id    ;\
+.PHONY: list
+list:
+	@echo "Bucket: $(OFFLINE_RESULTS_BUCKET)"
+	@aws s3 ls s3://$(OFFLINE_RESULTS_BUCKET) --recursive
+	@echo "Bucket: $(OFFLINE_UPLOADS_BUCKET)"
+	@aws s3 ls s3://$(OFFLINE_UPLOADS_BUCKET) --recursive
+	@set -e;\
+	table_name=$$(aws dynamodb list-tables --query 'TableNames[0]' --output text);\
+	aws dynamodb scan --table-name $$table_name --select COUNT;\
+	aws dynamodb describe-table --table-name $$table_name

@@ -85,7 +85,7 @@ exports.handler = async (event, context) => {
 
   await writeSearchResultsJSON(searchDetail, resultsBucket, resultsPrefix);
 
-  setElapsedTime("The whole enchilada", performance.now() - start);
+  setElapsedTime("Total time for search", performance.now() - start);
   console.log(elapsedTimers);
 
   searchSummary.push({ "execution times": elapsedTimers });
