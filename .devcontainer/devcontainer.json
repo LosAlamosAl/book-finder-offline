@@ -1,19 +1,23 @@
 {
     "name": "Book Finder (offline)",
     "dockerFile": "Dockerfile",
-    "settings": {
-        "dotfiles.repository": "https://github.com/losalamosal/dotfiles",
-        "dotfiles.targetPath": "~/dotfiles",
-        "dotfiles.installCommand": "~/dotfiles/install.sh",
-        "terminal.integrated.defaultProfile.linux": "zsh",
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "editor.formatOnSave": true
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "dotfiles.repository": "https://github.com/losalamosal/dotfiles",
+                "dotfiles.targetPath": "~/dotfiles",
+                "dotfiles.installCommand": "~/dotfiles/install.sh",
+                "terminal.integrated.defaultProfile.linux": "zsh",
+                "editor.defaultFormatter": "esbenp.prettier-vscode",
+                "editor.formatOnSave": true
+            },
+            "extensions": [
+                "kddejong.vscode-cfn-lint",
+                "dannysteenman.cloudformation-yaml-snippets",
+                "esbenp.prettier-vscode"
+            ]
+        }
     },
-    "extensions": [
-        "kddejong.vscode-cfn-lint",
-        "dannysteenman.cloudformation-yaml-snippets",
-        "esbenp.prettier-vscode"
-    ],
     "mounts": [
         "source=${env:HOME}${env:USERPROFILE}/.aws,target=/home/devboy/.aws,type=bind",
         "source=${env:HOME}${env:USERPROFILE}/.vscode-zsh-hists/udemy-rock-aws-serverless,target=/home/devboy/.zsh_history,type=bind"
