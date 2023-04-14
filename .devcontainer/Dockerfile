@@ -53,19 +53,19 @@ RUN apt-get update \
 # allowedSignersFile but I didn't find it necessary.
 # https://calebhearth.com/sign-git-with-ssh is also helpful.
 RUN cd /tmp \
-    && curl -LksS https://github.com/git/git/archive/v2.37.0.zip -o git.zip \
+    && curl -LksS https://github.com/git/git/archive/v2.40.0.zip -o git.zip \
     && unzip git.zip \
-    && cd git-2.37.0 \
+    && cd git-2.40.0 \
     && make prefix=/usr/local all \
     && make prefix=/usr/local install \
     && cd /tmp \
-    && rm -rf git-2.37.0
+    && rm -rf git-2.40.0
 
 RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g aws-cdk
 
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64-2.0.30.zip" -o awscliv2.zip \
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o awscliv2.zip \
     && unzip awscliv2.zip \
     && ./aws/install \
     && rm -rf aws awscliv2.zip
