@@ -95,21 +95,16 @@ delete:
 		echo "Lambda upload stack does not exist--can not delete it!" ;\
 		exit 2 ;\
 	fi
-	@aws s3api list-object-versions \
-		--bucket $(LAMBDA_UPLOAD_BUCKET) \
-		--output=json \
-		--query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}' > /tmp/files_to_delete
-# Are these (files/markers) in the right order? Check for null markers if
-# there's just one file (no versions).
-	@aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) --delete file:///tmp/files_to_delete
-	@aws s3api list-object-versions \
-		--bucket $(LAMBDA_UPLOAD_BUCKET) \
-		--output=json \
-		--query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' > /tmp/markers_to_delete
-	@aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) --delete file:///tmp/markers_to_delete
+	# Might get error is no objects or delete markers. `-` at beginning
+	# of line tells make to soldier on in the presence of errors here.
+	# Thanks https://stackoverflow.com/a/61123579/227441
+	@-aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) \
+		--delete "$$(aws s3api list-object-versions --bucket $(LAMBDA_UPLOAD_BUCKET) \
+		--query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')"
+	@-aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) \
+		--delete "$$(aws s3api list-object-versions --bucket $(LAMBDA_UPLOAD_BUCKET) \
+		--query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}')"
 	@aws cloudformation delete-stack --stack-name $(LAMBDA_UPLOAD_STACK)
-	@rm /tmp/files_to_delete
-	@rm /tmp/markers_to_delete
 	@rm lambda/lambda.zip
 	@rm -rf lambda/node_modules
 	@rm lambda/package-lock.json
