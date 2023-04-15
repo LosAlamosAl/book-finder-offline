@@ -131,3 +131,23 @@ Finally, go to GitHub and submit the PR.
 One reason **not** to use the `package` method of lambda upload: it requires an update to the stack. If you do it my way, with zip version passed in, you can skip CFN update and just set the new lambda code on the lambda resource (using `aws lambda update-function-code`).
 
 Lame duplication of S3 read/write functions and drawing code. Could move in to module.
+
+Remember UUID and trailing slash on initial image upload:
+
+```sh
+aws s3 cp file.png s3://bucket/some-user-id/
+```
+
+Add a flag for true substring search, or only word search.
+
+Describe why the node-canvas lambda layer is needed. Also, why it is so slow.
+
+Explain tilted bug.
+
+What's left that must be deleted manually after a `make delete`?
+
+- API Gateway welcome log
+- API Gateway execution logs
+- Probably a bunch of IAM stuff
+
+Figure out custom domain again.

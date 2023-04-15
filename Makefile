@@ -99,6 +99,8 @@ delete:
 		--bucket $(LAMBDA_UPLOAD_BUCKET) \
 		--output=json \
 		--query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}' > /tmp/files_to_delete
+# Are these (files/markers) in the right order? Check for null markers if
+# there's just one file (no versions).
 	@aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) --delete file:///tmp/files_to_delete
 	@aws s3api list-object-versions \
 		--bucket $(LAMBDA_UPLOAD_BUCKET) \

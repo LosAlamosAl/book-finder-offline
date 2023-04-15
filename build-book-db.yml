@@ -434,7 +434,7 @@ Resources:
       Layers:
         - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:1
       MemorySize: 1024
-      Timeout: 60
+      Timeout: 120
 
   S3TriggerLimitRetries:
     Type: AWS::Lambda::EventInvokeConfig
