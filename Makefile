@@ -28,33 +28,33 @@ error:
 # --- Create everything from scratch -- must be called first --------------------------------
 .PHONY: create
 create:
-	@if aws cloudformation describe-stacks --stack-name $(LAMBDA_UPLOAD_STACK) &> /dev/null; then \
-		echo "Lambda upload stack already exists--did you mean to run make deploy?" ;\
-		exit 2 ;\
+	@if aws cloudformation describe-stacks --stack-name $(LAMBDA_UPLOAD_STACK) &> /dev/null; then	\
+		echo "Lambda upload stack already exists--did you mean to run make deploy?" ;				\
+		exit 2 ;																					\
 	fi
 # Create the bucket (version-enabled) to upload lambda functions to.
 	@echo "Creating bucket for lambda Zip files..."
-	@aws cloudformation deploy --stack-name $(LAMBDA_UPLOAD_STACK)                          \
-		--template-file $(LAMBDA_UPLOAD_CFN)                                               \
+	@aws cloudformation deploy --stack-name $(LAMBDA_UPLOAD_STACK)                          		\
+		--template-file $(LAMBDA_UPLOAD_CFN)                                               			\
 		--parameter-overrides Unique=$(UNIQUE)  
-	@if aws cloudformation describe-stacks --stack-name $(OFFLINE_STACK) &> /dev/null; then \
-		echo "Offline processing stack already exists--did you mean to run make deploy?" ;\
-		exit 2 ;\
+	@if aws cloudformation describe-stacks --stack-name $(OFFLINE_STACK) &> /dev/null; then 		\
+		echo "Offline processing stack already exists--did you mean to run make deploy?" ;			\
+		exit 2 ;																					\
 	fi
 # Create initial Zip file with all lambdas (because neither should exist at this point)
 	@make -C lambda
-	@set -e    ;\
-	zip_version=$$(aws s3api list-object-versions                                 \
-		--bucket $(LAMBDA_UPLOAD_BUCKET) --prefix lambda.zip                             \
-		--query 'Versions[?IsLatest == `true`].VersionId | [0]'                   \
-		--output text)                                                           ;\
-	echo "Running aws cloudformation deploy with ZIP version $$zip_version..."   ;\
-	aws cloudformation deploy --stack-name $(OFFLINE_STACK)                          \
-		--template-file $(CFN_FILE)                                               \
-		--parameter-overrides     \
-			ZipVersionId=$$zip_version                          \
-			ZipBucketName=$(LAMBDA_UPLOAD_BUCKET)           \
-			Unique=$(UNIQUE)    \
+	@set -e    ;																					\
+	zip_version=$$(aws s3api list-object-versions                                					\
+		--bucket $(LAMBDA_UPLOAD_BUCKET) --prefix lambda.zip                             			\
+		--query 'Versions[?IsLatest == `true`].VersionId | [0]'                   					\
+		--output text)                                                           ;					\
+	echo "Running aws cloudformation deploy with ZIP version $$zip_version..."   ;					\
+	aws cloudformation deploy --stack-name $(OFFLINE_STACK)                          				\
+		--template-file $(CFN_FILE)                                               					\
+		--parameter-overrides     																	\
+			ZipVersionId=$$zip_version                          									\
+			ZipBucketName=$(LAMBDA_UPLOAD_BUCKET)           										\
+			Unique=$(UNIQUE)    																	\
 		--capabilities CAPABILITY_NAMED_IAM
 
 .PHONY: read
@@ -73,18 +73,18 @@ update:
 # Always update the lambda Zip file and upload to S3
 	@make -C lambda
 # TODO: if CFN_FILE updated (newer than what?)
-	@set -e ;\
-	zip_version=$$(aws s3api list-object-versions                                 \
-		--bucket $(LAMBDA_UPLOAD_BUCKET) --prefix lambda.zip                             \
-		--query 'Versions[?IsLatest == `true`].VersionId | [0]'                   \
-		--output text)                                                           ;\
-	echo "Running aws cloudformation deploy with ZIP version $$zip_version..."   ;\
-	aws cloudformation deploy --stack-name $(OFFLINE_STACK)                          \
-		--template-file $(CFN_FILE)                                               \
-		--parameter-overrides     \
-			ZipVersionId=$$zip_version                          \
-			ZipBucketName=$(LAMBDA_UPLOAD_BUCKET)           \
-			Unique=$(UNIQUE)    \
+	@set -e ;																						\
+	zip_version=$$(aws s3api list-object-versions                                 					\
+		--bucket $(LAMBDA_UPLOAD_BUCKET) --prefix lambda.zip                             			\
+		--query 'Versions[?IsLatest == `true`].VersionId | [0]'                   					\
+		--output text)                                                           ;					\
+	echo "Running aws cloudformation deploy with ZIP version $$zip_version..."   ;					\
+	aws cloudformation deploy --stack-name $(OFFLINE_STACK)                          				\
+		--template-file $(CFN_FILE)                                               					\
+		--parameter-overrides     																	\
+			ZipVersionId=$$zip_version                          									\
+			ZipBucketName=$(LAMBDA_UPLOAD_BUCKET)           										\
+			Unique=$(UNIQUE)    																	\
 		--capabilities CAPABILITY_NAMED_IAM
 # TODO: else must want to back door modified lambda code
 
@@ -92,25 +92,25 @@ update:
 .PHONY: delete
 delete:
 	@if ! aws cloudformation describe-stacks --stack-name $(LAMBDA_UPLOAD_STACK) &> /dev/null; then \
-		echo "Lambda upload stack does not exist--can not delete it!" ;\
-		exit 2 ;\
+		echo "Lambda upload stack does not exist--can not delete it!" ;								\
+		exit 2 ;																					\
 	fi
 # Might get error is no objects or delete markers. `-` at beginning
 # of line tells make to soldier on in the presence of errors here.
 # Thanks https://stackoverflow.com/a/61123579/227441
-	@-aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) \
-		--delete "$$(aws s3api list-object-versions --bucket $(LAMBDA_UPLOAD_BUCKET) \
+	@-aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) 									\
+		--delete "$$(aws s3api list-object-versions --bucket $(LAMBDA_UPLOAD_BUCKET) 				\
 		--query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')"
-	@-aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) \
-		--delete "$$(aws s3api list-object-versions --bucket $(LAMBDA_UPLOAD_BUCKET) \
+	@-aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) 									\
+		--delete "$$(aws s3api list-object-versions --bucket $(LAMBDA_UPLOAD_BUCKET) 				\
 		--query='{Objects: Versions[].{Key:Key,VersionId:VersionId}}')"
 	@aws cloudformation delete-stack --stack-name $(LAMBDA_UPLOAD_STACK)
 	@rm lambda/lambda.zip
 	@rm -rf lambda/node_modules
 	@rm lambda/package-lock.json
-	@if ! aws cloudformation describe-stacks --stack-name $(OFFLINE_STACK) &> /dev/null; then \
-		echo "Offline processing stack does not exist--can not delete it!" ;\
-		exit 2 ;\
+	@if ! aws cloudformation describe-stacks --stack-name $(OFFLINE_STACK) &> /dev/null; then 		\
+		echo "Offline processing stack does not exist--can not delete it!" ;						\
+		exit 2 ;																					\
 	fi
 	@aws s3 rm s3://$(OFFLINE_RESULTS_BUCKET) --recursive
 	@aws s3 rm s3://$(OFFLINE_UPLOADS_BUCKET) --recursive
@@ -124,7 +124,7 @@ list:
 	@aws s3 ls s3://$(OFFLINE_RESULTS_BUCKET) --recursive
 	@echo "Bucket: $(OFFLINE_UPLOADS_BUCKET)"
 	@aws s3 ls s3://$(OFFLINE_UPLOADS_BUCKET) --recursive
-	@set -e;\
-	table_name=$$(aws dynamodb list-tables --query 'TableNames[0]' --output text);\
-	aws dynamodb scan --table-name $$table_name --select COUNT;\
+	@set -e;																						\
+	table_name=$$(aws dynamodb list-tables --query 'TableNames[0]' --output text);					\
+	aws dynamodb scan --table-name $$table_name --select COUNT;										\
 	aws dynamodb describe-table --table-name $$table_name
