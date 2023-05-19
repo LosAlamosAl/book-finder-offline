@@ -2,13 +2,21 @@
 
 - Requirements
   - AWS account
+    - Permissions required to build
   - Tools
   - Lambda layer for `node-canvas`
+    - Limitations and performance problems.
 - Description of Application
+  - Limitations and pointer to @mcpherson's work
 - Building
+  - CFN structure
+    - What resources are built
+    - Why multiple CFN files?
   - The Makefile
-    - naming conventions
+    - Naming conventions
+    - Likelyhood of brittleness
 - Running
+  - Outputs
   - Commands
     - `curl`
     - Various `aws` commands
@@ -16,6 +24,9 @@
       - versus `--query`
 - Warnings and Caveats
   - S3 trigger
+  - canvas-nodejs performance
+  - Seperate bucket for upload trigger, but still be careful
+  - Lambda bucket versioning (why?)
 
 `cat results/IMG_1241.json| jq '.TextDetections[].DetectedText'`
 `cat results/IMG_1241.json| jq '. | fromjson'`

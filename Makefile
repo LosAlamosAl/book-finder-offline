@@ -21,7 +21,7 @@ OFFLINE_RESULTS_BUCKET := $(UNIQUE)--bookfinder-results
 # --- Default target will be run when no target specified. -----------------------------------
 .PHONY: error
 error:
-	@echo "Please choose one of the following targets: create, update, delete"
+	@echo "Please choose one of the following targets: create, read, update, delete"
 	@echo "For more info see README.md in the GitHub repo"
 	@exit 2
 
@@ -95,9 +95,9 @@ delete:
 		echo "Lambda upload stack does not exist--can not delete it!" ;\
 		exit 2 ;\
 	fi
-	# Might get error is no objects or delete markers. `-` at beginning
-	# of line tells make to soldier on in the presence of errors here.
-	# Thanks https://stackoverflow.com/a/61123579/227441
+# Might get error is no objects or delete markers. `-` at beginning
+# of line tells make to soldier on in the presence of errors here.
+# Thanks https://stackoverflow.com/a/61123579/227441
 	@-aws s3api delete-objects --bucket $(LAMBDA_UPLOAD_BUCKET) \
 		--delete "$$(aws s3api list-object-versions --bucket $(LAMBDA_UPLOAD_BUCKET) \
 		--query='{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')"
