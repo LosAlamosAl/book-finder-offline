@@ -167,4 +167,4 @@ Figure out custom domain again.
 
 This software is licensed under the GNU General Public License v3.0 or later.
 
-See [COPYING](https://github.com/LosAlamosAl/book-finder-offline/blob/main/Makefile) to see the full text of the license.
+See [COPYING](https://github.com/LosAlamosAl/book-finder-offline/blob/main/COPYING) to see the full text of the license.
