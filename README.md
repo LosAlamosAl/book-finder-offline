@@ -162,3 +162,9 @@ What's left that must be deleted manually after a `make delete`?
 - Probably a bunch of IAM stuff
 
 Figure out custom domain again.
+
+### License
+
+This software is licensed under the GNU General Public License v3.0 or later.
+
+See [COPYING](https://github.com/LosAlamosAl/book-finder-offline/blob/main/Makefile) to see the full text of the license.
