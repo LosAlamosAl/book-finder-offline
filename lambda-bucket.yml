@@ -4,7 +4,6 @@ Description: Lambda uploads (versioning enabled bucket)
 Parameters:
   Unique:
     Type: String
-    Default: losalamosal
 
   VersionedBucketName:
     Type: String

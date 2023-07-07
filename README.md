@@ -20,6 +20,7 @@
   - Commands
     - `curl`
     - Various `aws` commands
+    - `make`, `bash`
     - `jq`
       - versus `--query`
 - Warnings and Caveats

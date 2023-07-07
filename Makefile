@@ -4,8 +4,6 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -c
 
-# This should be the same as Unique in CFN files
-# FIXME: the above requirement is error prone--don't do defaults
 UNIQUE := losalamosal
 OFFLINE_STACK := $(UNIQUE)--bookfinder-offline
 CFN_FILE := build-book-db.yml
@@ -42,7 +40,7 @@ create:
 		exit 2 ;																					\
 	fi
 # Create initial Zip file with all lambdas (because neither should exist at this point)
-	@make -C lambda
+	@$(MAKE) -C lambda
 	@set -e    ;																					\
 	zip_version=$$(aws s3api list-object-versions                                					\
 		--bucket $(LAMBDA_UPLOAD_BUCKET) --prefix lambda.zip                             			\
