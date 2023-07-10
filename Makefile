@@ -27,7 +27,7 @@ error:
 .PHONY: create
 create:
 	@if aws cloudformation describe-stacks --stack-name $(LAMBDA_UPLOAD_STACK) &> /dev/null; then	\
-		echo "Lambda upload stack already exists--did you mean to run make deploy?" ;				\
+		echo "Lambda upload stack already exists--did you mean to run make update?" ;				\
 		exit 2 ;																					\
 	fi
 # Create the bucket (version-enabled) to upload lambda functions to.
@@ -113,8 +113,12 @@ delete:
 	@aws s3 rm s3://$(OFFLINE_RESULTS_BUCKET) --recursive
 	@aws s3 rm s3://$(OFFLINE_UPLOADS_BUCKET) --recursive
 	@aws cloudformation delete-stack --stack-name $(OFFLINE_STACK)
-# TODO: add cloudformation describe-stack-resources to show what resorces must be
-# deleted by hand.
+# Delete leftover log groups
+	@set -e ; 																						\
+	groups=$$(aws logs describe-log-groups --query 'logGroups[].logGroupName' --output text) ; 		\
+	for g in $$groups ; do 																			\
+		aws logs delete-log-group --log-group-name $$g ; 											\
+	done
 
 .PHONY: list
 list:
