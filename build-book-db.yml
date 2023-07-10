@@ -228,7 +228,7 @@ Resources:
         S3Key: !Ref ZipS3Key
         S3ObjectVersion: !Ref ZipVersionId
       Layers:
-        - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:1
+        - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:4
       MemorySize: 1024
       Timeout: 60
 
@@ -432,7 +432,7 @@ Resources:
       # https://github.com/charoitel/lambda-layer-canvas-nodejs/wiki
       # https://docs.aws.amazon.com/serverlessrepo/latest/devguide/sharing-lambda-layers.html
       Layers:
-        - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:1
+        - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:4
       MemorySize: 1024
       Timeout: 120
 
