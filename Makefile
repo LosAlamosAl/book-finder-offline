@@ -120,6 +120,9 @@ delete:
 		aws logs delete-log-group --log-group-name $$g ; 											\
 	done
 
+# When this Makefile gets cleaned up, let this section dump anything
+# that might be useful (files produced, certificate ARN, API endpoint,
+# API d- version of the endpoint), etc.
 .PHONY: list
 list:
 	@echo "Bucket: $(OFFLINE_RESULTS_BUCKET)"
