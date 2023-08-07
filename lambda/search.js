@@ -1,5 +1,6 @@
 // If we're using Node 18.x we don't need to include AWS JS SDK
 // TODO: Add descriptive header comment.
+// canvas is supplied in a lambda layer--see the README file
 const { Image, createCanvas } = require("canvas");
 
 const { S3Client, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
@@ -29,7 +30,7 @@ exports.handler = async (event, context) => {
   const uploadsBucket = process.env.UPLOADS_BUCKET_NAME;
   const tableName = process.env.DB_TABLE_NAME;
 
-  // Unique string identifies wach individual call to search.
+  // Unique string identifies each individual call to search.
   const nowString = Date.now();
 
   const userUUID = lambdaInput.UUID;
@@ -45,7 +46,19 @@ exports.handler = async (event, context) => {
   console.log(`resultsPrefix: ${resultsPrefix}`);
   console.log(`tableName: ${tableName}`);
 
-  // Query the database to get all images associatated with given UUID.
+  // Check to see if caller wants LINEs returned (or just WORDs).
+  // Include them by default (no query parameter supplied).
+  let includeLines = true;
+  if (event.queryStringParameters != null) {
+    if ("includeLines" in event.queryStringParameters) {
+      // convert string to boolean
+      includeLines = event.queryStringParameters.includeLines == "true" ? true : false;
+    }
+  }
+  console.log(`includeLines: ${includeLines}`);
+  console.log(typeof includeLines);
+
+  // Query the database to get all images associated with given UUID.
   // These images will be used as second key on subsequent requests
   // to the database for found text for that UUID and image.
   const allImageKeys = await getAllImageKeys(userUUID, tableName);
@@ -58,7 +71,7 @@ exports.handler = async (event, context) => {
 
   // Main loop
   for (imgKey of allImageKeys) {
-    let textFoundForImage = await getTextFoundForImage(imgKey, userUUID, tableName);
+    let textFoundForImage = await getTextFoundForImage(imgKey, userUUID, tableName, includeLines);
     console.log("textFoundForImage:");
     console.log(textFoundForImage);
     let searchResultsForImage = searchImage(textFoundForImage, searchTerms);
@@ -182,7 +195,7 @@ async function writeSearchResultsImage(imageName, found, outBucket, outPrefix, i
   const ctx = canvas.getContext("2d");
   let start = performance.now();
   ctx.drawImage(image, 0, 0);
-  setElapsedTime("writeSearcResultsImage: drawImage", performance.now() - start);
+  setElapsedTime("writeSearchResultsImage: drawImage", performance.now() - start);
 
   // FIXME: This deeply nested loop is ugly. Try to simplify.
   for (hit of found) {
@@ -275,7 +288,7 @@ async function getAllImageKeys(id, table) {
 // --------------------------------------------------
 // Query the DynamoDB database to get all text found (by Rekognition)
 // in a single image for a given id (userUUID).
-async function getTextFoundForImage(image, id, table) {
+async function getTextFoundForImage(image, id, table, includeLines) {
   const getParams = {
     TableName: table,
     Key: {
@@ -289,8 +302,15 @@ async function getTextFoundForImage(image, id, table) {
   try {
     const start = performance.now();
     const data = await dynoClient.send(getItemCommand);
-    setElapsedTime("getTextFoundForImage: getItemCommand", performance.now() - start);
-    return JSON.parse(data.Item.RekogResults.S);
+    let res = JSON.parse(data.Item.RekogResults.S);
+    // strip out LINEs if requested
+    console.log(`res:includeLines: ${includeLines}`);
+    if (!includeLines) {
+      console.log("Filtering out LINEs as requested...");
+      res.TextDetections = res.TextDetections.filter((t) => t.Type != "LINE");
+    }
+    setElapsedTime("getTextFoundForImage: getItemCommand+filter", performance.now() - start);
+    return res;
   } catch (error) {
     console.log(`getTextFoundForImage: getItemCommand failed: ${JSON.stringify(error)}`);
     throw new Error(error);
