@@ -6,6 +6,7 @@ SHELL := /bin/bash
 
 # UNIQUE := UNIQUE-STRING-PLACEHOLDER
 UNIQUE := losalamosal
+STACK_TAG := $(UNIQUE)--bookfinder-app
 OFFLINE_STACK := $(UNIQUE)--bookfinder-offline
 CFN_FILE := build-book-db.yml
 
@@ -37,7 +38,8 @@ create:
 	@echo "Creating bucket for lambda Zip files..."
 	@aws cloudformation deploy --stack-name $(LAMBDA_UPLOAD_STACK)                          		\
 		--template-file $(LAMBDA_UPLOAD_CFN)                                               			\
-		--parameter-overrides Unique=$(UNIQUE)  
+		--parameter-overrides Unique=$(UNIQUE)                                                      \
+		--tags app=$(STACK_TAG)
 	@if aws cloudformation describe-stacks --stack-name $(OFFLINE_STACK) &> /dev/null; then 		\
 		echo "Offline processing stack already exists--did you mean to run make deploy?" ;			\
 		exit 2 ;																					\
@@ -56,6 +58,7 @@ create:
 			ZipVersionId=$$zip_version                          									\
 			ZipBucketName=$(LAMBDA_UPLOAD_BUCKET)           										\
 			Unique=$(UNIQUE)    																	\
+		--tags app=$(STACK_TAG)                                                                     \
 		--capabilities CAPABILITY_NAMED_IAM
 
 .PHONY: read
@@ -87,6 +90,7 @@ update:
 			ZipVersionId=$$zip_version                          									\
 			ZipBucketName=$(LAMBDA_UPLOAD_BUCKET)           										\
 			Unique=$(UNIQUE)    																	\
+		--tags app=$(STACK_TAG)                                                                     \
 		--capabilities CAPABILITY_NAMED_IAM
 # TODO: else must want to back door modified lambda code
 
