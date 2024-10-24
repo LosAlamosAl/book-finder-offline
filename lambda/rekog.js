@@ -14,8 +14,9 @@ const rekClient = new RekognitionClient();
 // Failsafe to stop potentially runaway lambda. We expect Rekognition to eventually
 // return zero text found. If for some reason it doesn't (e.g. keeps finding one
 // more word) then this will limit the total number of passes executed. If this
-// condidtion is triggered it's considered an error: investigate and determine
+// condition is triggered it's considered an error: investigate and determine
 // why Rekognition isn't returning zero at some point.
+//TODO: Make this an environment variable in CFN file.
 const MAX_PASSES = 15;
 
 // Quick and dirty global to collect elapsed run times. Used with setElapsedTime().
@@ -153,7 +154,7 @@ async function writeAllFound(bucket, key, found, uuid, imageName, includeLines =
     delete label.Geometry.BoundingBox;
   });
 
-  // Retain LINEs unless the callse says no. Use caution thogh: testing has
+  // Retain LINEs unless the caller says no. Use caution though: testing has
   // shown that Polygons on LINEs can look "weird". Look at images with
   // prefix of "debug" in the results bucket to verify desired results.
   if (!includeLines) {

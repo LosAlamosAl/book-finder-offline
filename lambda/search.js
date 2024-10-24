@@ -56,7 +56,6 @@ exports.handler = async (event, context) => {
     }
   }
   console.log(`includeLines: ${includeLines}`);
-  console.log(typeof includeLines);
 
   // Query the database to get all images associated with given UUID.
   // These images will be used as second key on subsequent requests
@@ -304,9 +303,7 @@ async function getTextFoundForImage(image, id, table, includeLines) {
     const data = await dynoClient.send(getItemCommand);
     let res = JSON.parse(data.Item.RekogResults.S);
     // strip out LINEs if requested
-    console.log(`res:includeLines: ${includeLines}`);
     if (!includeLines) {
-      console.log("Filtering out LINEs as requested...");
       res.TextDetections = res.TextDetections.filter((t) => t.Type != "LINE");
     }
     setElapsedTime("getTextFoundForImage: getItemCommand+filter", performance.now() - start);

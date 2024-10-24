@@ -53,15 +53,15 @@ RUN apt-get update \
 # allowedSignersFile but I didn't find it necessary.
 # https://calebhearth.com/sign-git-with-ssh is also helpful.
 RUN cd /tmp \
-    && curl -LksS https://github.com/git/git/archive/v2.40.0.zip -o git.zip \
+    && curl -LksS https://github.com/git/git/archive/v2.47.0.zip -o git.zip \
     && unzip git.zip \
-    && cd git-2.40.0 \
+    && cd git-2.47.0 \
     && make prefix=/usr/local all \
     && make prefix=/usr/local install \
     && cd /tmp \
-    && rm -rf git-2.40.0
+    && rm -rf git-2.47.0
 
-RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g aws-cdk
 
@@ -72,7 +72,7 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o awscliv2
 
 RUN npm install -g aws-cdk@next
 
-RUN /bin/sh -c "$(curl -fsSL https://raw.githubusercontent.com/turbot/steampipe/main/install.sh)"
+RUN /bin/sh -c "$(curl -fsSL https://steampipe.io/install/steampipe.sh)"
 
 RUN pip3 install cfn-lint
 

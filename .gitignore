@@ -1,5 +1,4 @@
 **/.DS_Store
-local
 .vscode
 **/node_modules
 **/package-lock.json

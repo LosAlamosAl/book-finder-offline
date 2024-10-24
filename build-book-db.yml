@@ -221,14 +221,15 @@ Resources:
           DB_TABLE_NAME: !Sub "${Unique}--${ResultsTableName}"
           RESULTS_BUCKET_NAME: !Sub "${Unique}--${ResultsBucketName}"
           UPLOADS_BUCKET_NAME: !Sub "${Unique}--${ImageBucketName}"
-      Runtime: nodejs16.x
+      Runtime: nodejs20.x
       Handler: search.handler
       Code:
         S3Bucket: !Ref ZipBucketName
         S3Key: !Ref ZipS3Key
         S3ObjectVersion: !Ref ZipVersionId
       Layers:
-        - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:4
+        #  - LAMBDA-LAYER-ARN-PLACEHOLDER
+        - arn:aws:lambda:us-west-2:789665535291:layer:canvas-nodejs:23
       MemorySize: 1024
       Timeout: 60
 
@@ -418,7 +419,7 @@ Resources:
     Properties:
       FunctionName: !Sub "${Unique}--${RekogFunctionName}"
       Role: !GetAtt S3TriggerLambdaRole.Arn
-      Runtime: nodejs16.x
+      Runtime: nodejs20.x
       Environment:
         Variables:
           DB_TABLE_NAME: !Sub "${Unique}--${ResultsTableName}"
@@ -432,7 +433,8 @@ Resources:
       # https://github.com/charoitel/lambda-layer-canvas-nodejs/wiki
       # https://docs.aws.amazon.com/serverlessrepo/latest/devguide/sharing-lambda-layers.html
       Layers:
-        - arn:aws:lambda:us-west-2:136545519964:layer:canvas-nodejs:4
+        #  - LAMBDA-LAYER-ARN-PLACEHOLDER
+        - arn:aws:lambda:us-west-2:789665535291:layer:canvas-nodejs:23
       MemorySize: 1024
       Timeout: 120
 

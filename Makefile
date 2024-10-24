@@ -4,6 +4,7 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -c
 
+# UNIQUE := UNIQUE-STRING-PLACEHOLDER
 UNIQUE := losalamosal
 OFFLINE_STACK := $(UNIQUE)--bookfinder-offline
 CFN_FILE := build-book-db.yml
@@ -26,6 +27,8 @@ error:
 # --- Create everything from scratch -- must be called first --------------------------------
 .PHONY: create
 create:
+# TODO: Add logic to check for lambda.zip and node_modules. Don't run if they
+# exist.
 	@if aws cloudformation describe-stacks --stack-name $(LAMBDA_UPLOAD_STACK) &> /dev/null; then	\
 		echo "Lambda upload stack already exists--did you mean to run make update?" ;				\
 		exit 2 ;																					\
@@ -57,6 +60,7 @@ create:
 
 .PHONY: read
 read:
+	@aws cloudformation describe-stacks --stack-name $(LAMBDA_UPLOAD_STACK)
 	@aws cloudformation describe-stacks --stack-name $(OFFLINE_STACK)
 
 # --- Update parts of the previously created stack -- used after initial create -------------
